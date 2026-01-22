@@ -1,0 +1,82 @@
+[
+  {
+    "id": "lucky",
+    "name": "Lucky",
+    "description": "DDNS、反向代理、证书自动化",
+    "port": 16601,
+    "icon": "🍀",
+    "enabled": true,
+    "createdAt": 1769097408289,
+    "updatedAt": 0
+  },
+  {
+    "id": "alist",
+    "name": "Alist",
+    "description": "多网盘整合与 WebDAV",
+    "port": 5244,
+    "icon": "/static/images/alist.png",
+    "enabled": true,
+    "createdAt": 1769097408289,
+    "updatedAt": 0
+  },
+  {
+    "id": "immich",
+    "name": "Immich",
+    "description": "相册备份与 AI 检索",
+    "port": 2283,
+    "icon": "/static/images/immich.png",
+    "enabled": true,
+    "createdAt": 1769097408289,
+    "updatedAt": 0
+  },
+  {
+    "id": "jellyfin",
+    "name": "Jellyfin",
+    "description": "媒体管理与播放",
+    "port": 8096,
+    "icon": "/static/images/jellyfin.jpg",
+    "enabled": true,
+    "createdAt": 1769097408289,
+    "updatedAt": 0
+  },
+  {
+    "id": "comfyui",
+    "name": "ComfyUI",
+    "description": "AI 图像生成工作流",
+    "port": 28000,
+    "icon": "/static/images/comfyui.webp",
+    "enabled": true,
+    "createdAt": 1769097408289,
+    "updatedAt": 0
+  },
+  {
+    "id": "rustdesk",
+    "name": "RustDesk",
+    "description": "开源远程桌面控制",
+    "port": 0,
+    "icon": "/static/images/rustdesk.png",
+    "enabled": false,
+    "createdAt": 1769097408289,
+    "updatedAt": 0
+  },
+  {
+    "id": "sunshine",
+    "name": "Sunshine",
+    "description": "游戏串流服务端",
+    "port": 0,
+    "icon": "☀️",
+    "enabled": false,
+    "createdAt": 1769097408289,
+    "updatedAt": 0
+  },
+  {
+    "id": "moonlight",
+    "name": "Moonlight",
+    "description": "游戏串流客户端",
+    "port": 0,
+    "icon": "🌙",
+    "enabled": false,
+    "createdAt": 1769097408289,
+    "updatedAt": 0
+  }
+]

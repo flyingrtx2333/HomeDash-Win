@@ -1,0 +1,6 @@
+my.txt
+*.exe
+winres/
+*.syso
+go.mod
+go.sum
