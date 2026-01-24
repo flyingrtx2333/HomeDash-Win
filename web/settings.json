@@ -1,5 +1,7 @@
 {
   "serverIp": "3070ti",
   "backgroundUrl": "/static/backgrounds/mountain.jpg",
-  "theme": "dark"
+  "theme": "dark",
+  "webdavRoot": "",
+  "comfyuiServerUrl": "http://192.168.0.12:28000"
 }

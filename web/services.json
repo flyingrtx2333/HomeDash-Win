@@ -6,6 +6,8 @@
     "port": 16601,
     "icon": "🍀",
     "enabled": true,
+    "launchPath": "",
+    "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
   },
@@ -16,6 +18,8 @@
     "port": 5244,
     "icon": "/static/images/alist.png",
     "enabled": true,
+    "launchPath": "",
+    "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
   },
@@ -26,6 +30,8 @@
     "port": 2283,
     "icon": "/static/images/immich.png",
     "enabled": true,
+    "launchPath": "",
+    "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
   },
@@ -36,6 +42,8 @@
     "port": 8096,
     "icon": "/static/images/jellyfin.jpg",
     "enabled": true,
+    "launchPath": "",
+    "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
   },
@@ -46,8 +54,10 @@
     "port": 28000,
     "icon": "/static/images/comfyui.webp",
     "enabled": true,
+    "launchPath": "C:\\Users\\XJS\\AppData\\Local\\Programs\\ComfyUI\\ComfyUI.exe",
+    "autoStart": false,
     "createdAt": 1769097408289,
-    "updatedAt": 0
+    "updatedAt": 1769149844785
   },
   {
     "id": "rustdesk",
@@ -56,6 +66,8 @@
     "port": 0,
     "icon": "/static/images/rustdesk.png",
     "enabled": false,
+    "launchPath": "",
+    "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
   },
@@ -66,6 +78,8 @@
     "port": 0,
     "icon": "☀️",
     "enabled": false,
+    "launchPath": "",
+    "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
   },
@@ -76,6 +90,8 @@
     "port": 0,
     "icon": "🌙",
     "enabled": false,
+    "launchPath": "",
+    "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
   }

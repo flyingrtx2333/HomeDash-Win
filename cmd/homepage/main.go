@@ -21,7 +21,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/shirou/gopsutil/v3/process"
 	"golang.org/x/net/webdav"
+	"golang.org/x/sys/windows/registry"
 
 	"homecloud-ultimate/internal/monitor"
 )
@@ -37,22 +39,33 @@ type BackgroundInfo struct {
 
 // UserSettings 用户设置
 type UserSettings struct {
-	ServerIP      string `json:"serverIp"`
-	BackgroundURL string `json:"backgroundUrl"`
-	Theme         string `json:"theme"`      // "dark" | "light"
-	WebdavRoot    string `json:"webdavRoot"` // WebDAV 挂载根目录
+	ServerIP        string `json:"serverIp"`
+	BackgroundURL   string `json:"backgroundUrl"`
+	Theme           string `json:"theme"`            // "dark" | "light"
+	WebdavRoot      string `json:"webdavRoot"`      // WebDAV 挂载根目录
+	ComfyUIServerURL string `json:"comfyuiServerUrl"` // ComfyUI服务器地址
 }
 
 // ServiceCard 服务卡片
 type ServiceCard struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Port        int    `json:"port"`
-	Icon        string `json:"icon"`
-	Enabled     bool   `json:"enabled"`
-	CreatedAt   int64  `json:"createdAt"`
-	UpdatedAt   int64  `json:"updatedAt"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	Port          int    `json:"port"`
+	Icon          string `json:"icon"`
+	Enabled       bool   `json:"enabled"`
+	LaunchPath    string `json:"launchPath"`    // 启动路径（可执行文件路径，向后兼容）
+	LaunchCommand string `json:"launchCommand"` // 启动命令（支持参数）
+	ProcessName   string `json:"processName"`   // 进程名（用于检测和停止）
+	AutoStart     bool   `json:"autoStart"`      // 是否开机自启
+	CreatedAt     int64  `json:"createdAt"`
+	UpdatedAt     int64  `json:"updatedAt"`
+}
+
+// AppConfig 应用配置
+type AppConfig struct {
+	Port      string `json:"port"`      // 应用端口
+	AutoStart bool   `json:"autoStart"` // 是否开机自启
 }
 
 // PingResult 连通性检测结果
@@ -651,6 +664,267 @@ func main() {
 		c.JSON(http.StatusOK, images)
 	})
 
+	// ========== 应用配置 API ==========
+	router.GET("/api/app-config", func(c *gin.Context) {
+		config := AppConfig{
+			Port:      port,
+			AutoStart: isAppAutoStartEnabled(),
+		}
+		c.JSON(http.StatusOK, config)
+	})
+
+	router.POST("/api/app-config", func(c *gin.Context) {
+		var config AppConfig
+		if err := c.ShouldBindJSON(&config); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
+			return
+		}
+
+		// 保存端口到配置文件（需要重启才能生效）
+		// 注意：端口更改需要重启应用，这里只保存到设置文件
+		// 实际端口由环境变量 PORT 或默认值控制
+		// 可以将端口保存到 settings.json 的额外字段中，但当前版本不实现
+
+		// 设置应用开机自启
+		if err := setAppAutoStart(config.AutoStart); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "设置开机自启失败: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "配置已保存，端口更改需要重启应用才能生效"})
+	})
+
+	// ========== 服务启动和自启 API ==========
+	router.POST("/api/services/:id/launch", func(c *gin.Context) {
+		id := c.Param("id")
+		services := loadServices()
+		var service *ServiceCard
+		for i := range services {
+			if services[i].ID == id {
+				service = &services[i]
+				break
+			}
+		}
+
+		if service == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "服务不存在"})
+			return
+		}
+
+		// 优先使用 LaunchCommand，否则使用 LaunchPath（向后兼容）
+		var launchCmd string
+		if service.LaunchCommand != "" {
+			launchCmd = service.LaunchCommand
+		} else if service.LaunchPath != "" {
+			launchCmd = service.LaunchPath
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "服务未配置启动命令或启动路径"})
+			return
+		}
+
+		if err := launchService(launchCmd); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "启动失败: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	})
+
+	router.GET("/api/services/:id/autostart", func(c *gin.Context) {
+		id := c.Param("id")
+		enabled := isServiceAutoStartEnabled(id)
+		c.JSON(http.StatusOK, gin.H{"autoStart": enabled})
+	})
+
+	router.POST("/api/services/:id/autostart", func(c *gin.Context) {
+		id := c.Param("id")
+		var req struct {
+			AutoStart bool `json:"autoStart"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求"})
+			return
+		}
+
+		services := loadServices()
+		var service *ServiceCard
+		for i := range services {
+			if services[i].ID == id {
+				service = &services[i]
+				break
+			}
+		}
+
+		if service == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "服务不存在"})
+			return
+		}
+
+		if req.AutoStart && service.LaunchPath == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "请先配置启动路径"})
+			return
+		}
+
+		if err := setServiceAutoStart(id, service.LaunchPath, req.AutoStart); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "设置失败: " + err.Error()})
+			return
+		}
+
+		// 更新服务配置
+		service.AutoStart = req.AutoStart
+		for i := range services {
+			if services[i].ID == id {
+				services[i] = *service
+				break
+			}
+		}
+		saveServices(services)
+
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	})
+
+	// ========== 服务进程检测和停止 API ==========
+	router.GET("/api/services/:id/process-status", func(c *gin.Context) {
+		id := c.Param("id")
+		services := loadServices()
+		var service *ServiceCard
+		for i := range services {
+			if services[i].ID == id {
+				service = &services[i]
+				break
+			}
+		}
+
+		if service == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "服务不存在"})
+			return
+		}
+
+		// 检查是否有启动配置
+		hasLaunchConfig := service.LaunchCommand != "" || service.LaunchPath != ""
+		if !hasLaunchConfig {
+			c.JSON(http.StatusOK, gin.H{"running": false, "pid": 0})
+			return
+		}
+
+		status := checkServiceProcess(service.ProcessName, service.LaunchPath, service.LaunchCommand)
+		c.JSON(http.StatusOK, status)
+	})
+
+	router.POST("/api/services/:id/stop", func(c *gin.Context) {
+		id := c.Param("id")
+		services := loadServices()
+		var service *ServiceCard
+		for i := range services {
+			if services[i].ID == id {
+				service = &services[i]
+				break
+			}
+		}
+
+		if service == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "服务不存在"})
+			return
+		}
+
+		// 检查是否有启动配置
+		hasLaunchConfig := service.LaunchCommand != "" || service.LaunchPath != ""
+		if !hasLaunchConfig {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "服务未配置启动命令或启动路径"})
+			return
+		}
+
+		// 先检查进程是否存在
+		status := checkServiceProcess(service.ProcessName, service.LaunchPath, service.LaunchCommand)
+		if !status.Running {
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "进程未运行"})
+			return
+		}
+
+		// 停止进程
+		if err := stopServiceProcess(status.PID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "停止失败: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	})
+
+	// ========== 应用重启 API ==========
+	router.POST("/api/app/restart", func(c *gin.Context) {
+		// 在goroutine中执行重启，避免阻塞响应
+		go func() {
+			time.Sleep(1 * time.Second) // 等待响应发送完成
+			restartApplication()
+		}()
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "应用将在1秒后重启"})
+	})
+
+	// ========== ComfyUI API ==========
+	router.GET("/api/comfyui/config", func(c *gin.Context) {
+		settings := loadSettings()
+		c.JSON(http.StatusOK, gin.H{
+			"serverUrl": settings.ComfyUIServerURL,
+		})
+	})
+
+	router.POST("/api/comfyui/config", func(c *gin.Context) {
+		var config struct {
+			ServerURL string `json:"serverUrl"`
+		}
+		if err := c.ShouldBindJSON(&config); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
+			return
+		}
+
+		settings := loadSettings()
+		settings.ComfyUIServerURL = config.ServerURL
+		saveSettings(settings)
+
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	})
+
+	router.POST("/api/comfyui/workflow/execute", func(c *gin.Context) {
+		var req struct {
+			Workflow map[string]interface{} `json:"workflow"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
+			return
+		}
+
+		settings := loadSettings()
+		if settings.ComfyUIServerURL == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "请先配置ComfyUI服务器地址"})
+			return
+		}
+
+		promptId, err := submitComfyUIWorkflow(settings.ComfyUIServerURL, req.Workflow)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "提交工作流失败: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"success": true, "promptId": promptId})
+	})
+
+	router.GET("/api/comfyui/workflow/status/:id", func(c *gin.Context) {
+		promptId := c.Param("id")
+		settings := loadSettings()
+		if settings.ComfyUIServerURL == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "请先配置ComfyUI服务器地址"})
+			return
+		}
+
+		status, err := getComfyUIWorkflowStatus(settings.ComfyUIServerURL, promptId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "查询状态失败: " + err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, status)
+	})
+
 	addr := "0.0.0.0:" + port
 	log.Printf("HomeDash Win is running at http://%s", addr)
 	if err := router.Run(addr); err != nil {
@@ -1045,6 +1319,285 @@ func getDockerImages() []DockerImage {
 	return images
 }
 
+// ========== Windows 注册表操作 ==========
+const (
+	appAutoStartKey   = `Software\Microsoft\Windows\CurrentVersion\Run`
+	appAutoStartName = "HomeDash-Win"
+)
+
+// isAppAutoStartEnabled 检查应用是否已设置开机自启
+func isAppAutoStartEnabled() bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+
+	k, err := registry.OpenKey(registry.CURRENT_USER, appAutoStartKey, registry.QUERY_VALUE)
+	if err != nil {
+		return false
+	}
+	defer k.Close()
+
+	_, _, err = k.GetStringValue(appAutoStartName)
+	return err == nil
+}
+
+// setAppAutoStart 设置应用开机自启
+func setAppAutoStart(enabled bool) error {
+	if runtime.GOOS != "windows" {
+		return fmt.Errorf("仅支持 Windows 系统")
+	}
+
+	k, err := registry.OpenKey(registry.CURRENT_USER, appAutoStartKey, registry.SET_VALUE)
+	if err != nil {
+		return fmt.Errorf("打开注册表失败: %v", err)
+	}
+	defer k.Close()
+
+	if enabled {
+		// 获取当前可执行文件的完整路径
+		exePath, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("获取可执行文件路径失败: %v", err)
+		}
+		absPath, err := filepath.Abs(exePath)
+		if err != nil {
+			return fmt.Errorf("获取绝对路径失败: %v", err)
+		}
+		return k.SetStringValue(appAutoStartName, absPath)
+	} else {
+		return k.DeleteValue(appAutoStartName)
+	}
+}
+
+// isServiceAutoStartEnabled 检查服务是否已设置开机自启
+func isServiceAutoStartEnabled(serviceID string) bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+
+	keyName := fmt.Sprintf("HomeDash-Service-%s", serviceID)
+	k, err := registry.OpenKey(registry.CURRENT_USER, appAutoStartKey, registry.QUERY_VALUE)
+	if err != nil {
+		return false
+	}
+	defer k.Close()
+
+	_, _, err = k.GetStringValue(keyName)
+	return err == nil
+}
+
+// setServiceAutoStart 设置服务开机自启
+func setServiceAutoStart(serviceID, launchPath string, enabled bool) error {
+	if runtime.GOOS != "windows" {
+		return fmt.Errorf("仅支持 Windows 系统")
+	}
+
+	keyName := fmt.Sprintf("HomeDash-Service-%s", serviceID)
+	k, err := registry.OpenKey(registry.CURRENT_USER, appAutoStartKey, registry.SET_VALUE)
+	if err != nil {
+		return fmt.Errorf("打开注册表失败: %v", err)
+	}
+	defer k.Close()
+
+	if enabled {
+		if launchPath == "" {
+			return fmt.Errorf("启动路径不能为空")
+		}
+		// 转换为绝对路径
+		absPath, err := filepath.Abs(launchPath)
+		if err != nil {
+			return fmt.Errorf("获取绝对路径失败: %v", err)
+		}
+		return k.SetStringValue(keyName, absPath)
+	} else {
+		return k.DeleteValue(keyName)
+	}
+}
+
+// launchService 启动服务（支持带参数的命令）
+func launchService(launchCmd string) error {
+	// 解析命令和参数
+	parts := parseCommand(launchCmd)
+	if len(parts) == 0 {
+		return fmt.Errorf("启动命令为空")
+	}
+
+	// 第一个部分是可执行文件路径
+	exePath := parts[0]
+	absPath, err := filepath.Abs(exePath)
+	if err != nil {
+		return fmt.Errorf("获取绝对路径失败: %v", err)
+	}
+
+	// 验证可执行文件是否存在
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		return fmt.Errorf("文件不存在: %s", absPath)
+	}
+
+	// Windows 上使用 start 命令启动，避免阻塞
+	if runtime.GOOS == "windows" {
+		// 如果有参数，需要将整个命令作为字符串传递给 cmd
+		if len(parts) > 1 {
+			// 构建完整命令，处理包含空格的路径
+			fullCmd := fmt.Sprintf(`"%s"`, absPath)
+			for i := 1; i < len(parts); i++ {
+				// 如果参数包含空格，用引号包裹
+				if strings.Contains(parts[i], " ") {
+					fullCmd += fmt.Sprintf(` "%s"`, parts[i])
+				} else {
+					fullCmd += " " + parts[i]
+				}
+			}
+			cmd := exec.Command("cmd.exe", "/c", "start", "", fullCmd)
+			return cmd.Run()
+		} else {
+			cmd := exec.Command("cmd.exe", "/c", "start", "", absPath)
+			return cmd.Run()
+		}
+	} else {
+		// Linux/Mac 上直接执行
+		cmd := exec.Command(absPath, parts[1:]...)
+		return cmd.Start() // 使用 Start 而不是 Run，避免阻塞
+	}
+}
+
+// parseCommand 解析命令字符串，支持引号包裹的参数
+func parseCommand(cmdStr string) []string {
+	var parts []string
+	var current strings.Builder
+	inQuotes := false
+	escapeNext := false
+
+	for i, r := range cmdStr {
+		if escapeNext {
+			current.WriteRune(r)
+			escapeNext = false
+			continue
+		}
+
+		if r == '\\' {
+			escapeNext = true
+			continue
+		}
+
+		if r == '"' {
+			inQuotes = !inQuotes
+			continue
+		}
+
+		if r == ' ' && !inQuotes {
+			if current.Len() > 0 {
+				parts = append(parts, current.String())
+				current.Reset()
+			}
+		} else {
+			current.WriteRune(r)
+		}
+
+		// 处理最后一个字符
+		if i == len(cmdStr)-1 && current.Len() > 0 {
+			parts = append(parts, current.String())
+		}
+	}
+
+	return parts
+}
+
+// ProcessStatus 进程状态
+type ProcessStatus struct {
+	Running bool  `json:"running"`
+	PID     int32 `json:"pid"`
+}
+
+// checkServiceProcess 检测服务进程是否存在
+// processName: 进程名（优先使用），如果为空则从 launchPath 或 launchCommand 提取
+func checkServiceProcess(processName, launchPath, launchCommand string) ProcessStatus {
+	status := ProcessStatus{Running: false, PID: 0}
+
+	// 优先使用 processName
+	var exeName string
+	if processName != "" {
+		exeName = processName
+	} else if launchPath != "" {
+		// 从启动路径提取可执行文件名
+		exeName = filepath.Base(launchPath)
+	} else if launchCommand != "" {
+		// 从启动命令提取可执行文件名
+		parts := parseCommand(launchCommand)
+		if len(parts) > 0 {
+			exeName = filepath.Base(parts[0])
+		}
+	}
+
+	if exeName == "" {
+		return status
+	}
+
+	// 获取所有进程
+	processes, err := process.Processes()
+	if err != nil {
+		log.Printf("获取进程列表失败: %v", err)
+		return status
+	}
+
+	// 精确匹配进程名（不区分大小写）
+	for _, p := range processes {
+		name, err := p.Name()
+		if err != nil {
+			continue
+		}
+		if strings.EqualFold(name, exeName) {
+			status.Running = true
+			status.PID = p.Pid
+			return status
+		}
+	}
+
+	return status
+}
+
+// stopServiceProcess 停止服务进程
+func stopServiceProcess(pid int32) error {
+	if runtime.GOOS == "windows" {
+		// 先尝试优雅关闭
+		cmd := exec.Command("taskkill", "/PID", fmt.Sprintf("%d", pid))
+		err := cmd.Run()
+		if err == nil {
+			// 等待进程退出（最多 5 秒）
+			for i := 0; i < 10; i++ {
+				exists, _ := process.PidExists(pid)
+				if !exists {
+					return nil
+				}
+				time.Sleep(500 * time.Millisecond)
+			}
+		}
+
+		// 如果优雅关闭失败或超时，强制终止
+		cmd = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
+		return cmd.Run()
+	} else {
+		// Linux/Mac 上使用 kill 命令
+		// 先尝试 SIGTERM
+		proc, err := process.NewProcess(pid)
+		if err != nil {
+			return err
+		}
+		proc.Terminate()
+		
+		// 等待进程退出
+		time.Sleep(2 * time.Second)
+		
+		// 如果还在运行，强制终止
+		exists, _ := process.PidExists(pid)
+		if exists {
+			proc.Kill()
+		}
+		
+		return nil
+	}
+}
+
 // downloadFavicon 下载 favicon 并保存
 func downloadFavicon(faviconURL, webDir string) (string, error) {
 	client := &http.Client{
@@ -1088,4 +1641,225 @@ func downloadFavicon(faviconURL, webDir string) (string, error) {
 	}
 
 	return "/static/icons/" + filename, nil
+}
+
+// submitComfyUIWorkflow 提交ComfyUI工作流
+func submitComfyUIWorkflow(serverURL string, workflow map[string]interface{}) (string, error) {
+	// 构建请求体
+	reqBody := map[string]interface{}{
+		"prompt": workflow,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
+	// 发送POST请求
+	resp, err := http.Post(serverURL+"/prompt", "application/json", strings.NewReader(string(jsonData)))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+
+	// 提取prompt_id
+	promptId, ok := result["prompt_id"].(string)
+	if !ok {
+		return "", fmt.Errorf("无法获取prompt_id")
+	}
+
+	return promptId, nil
+}
+
+// getComfyUIWorkflowStatus 查询ComfyUI工作流状态
+func getComfyUIWorkflowStatus(serverURL, promptId string) (map[string]interface{}, error) {
+	// 1. 先查询队列状态
+	queueResp, err := http.Get(serverURL + "/queue")
+	if err == nil {
+		defer queueResp.Body.Close()
+		if queueResp.StatusCode == http.StatusOK {
+			var queueData map[string]interface{}
+			if json.NewDecoder(queueResp.Body).Decode(&queueData) == nil {
+				// 检查运行队列
+				running, _ := queueData["queue_running"].([]interface{})
+				for _, item := range running {
+					itemData, ok := item.([]interface{})
+					if !ok || len(itemData) < 2 {
+						continue
+					}
+					// 队列格式: [序号, prompt_id, workflow, extra_info, output_nodes]
+					itemPromptId, ok := itemData[1].(string)
+					if ok && itemPromptId == promptId {
+						return map[string]interface{}{
+							"completed": false,
+							"progress":  50,
+							"message":  "执行中",
+						}, nil
+					}
+				}
+
+				// 检查等待队列
+				pending, _ := queueData["queue_pending"].([]interface{})
+				for _, item := range pending {
+					itemData, ok := item.([]interface{})
+					if !ok || len(itemData) < 2 {
+						continue
+					}
+					itemPromptId, ok := itemData[1].(string)
+					if ok && itemPromptId == promptId {
+						return map[string]interface{}{
+							"completed": false,
+							"progress":  10,
+							"message":  "等待执行",
+						}, nil
+					}
+				}
+			}
+		}
+	}
+
+	// 2. 如果不在队列中，查询历史记录
+	historyResp, err := http.Get(serverURL + "/history?max_items=64")
+	if err != nil {
+		return map[string]interface{}{
+			"completed": false,
+			"progress":  0,
+			"message":  "查询失败",
+		}, nil
+	}
+	defer historyResp.Body.Close()
+
+	if historyResp.StatusCode != http.StatusOK {
+		return map[string]interface{}{
+			"completed": false,
+			"progress":  0,
+			"message":  "等待执行",
+		}, nil
+	}
+
+	var history map[string]interface{}
+	if err := json.NewDecoder(historyResp.Body).Decode(&history); err != nil {
+		return map[string]interface{}{
+			"completed": false,
+			"progress":  0,
+			"message":  "解析失败",
+		}, nil
+	}
+
+	// 检查历史记录中是否有该prompt_id
+	promptData, ok := history[promptId].(map[string]interface{})
+	if !ok {
+		return map[string]interface{}{
+			"completed": false,
+			"progress":  0,
+			"message":  "等待执行",
+		}, nil
+	}
+
+	// 检查状态
+	statusData, ok := promptData["status"].(map[string]interface{})
+	if ok {
+		completed, _ := statusData["completed"].(bool)
+		if completed {
+			// 执行完成，提取图片
+			outputs, _ := promptData["outputs"].(map[string]interface{})
+			images := []map[string]string{}
+
+			// 遍历所有节点的输出
+			for nodeId, nodeOutput := range outputs {
+				nodeData, ok := nodeOutput.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				imagesData, ok := nodeData["images"].([]interface{})
+				if !ok {
+					continue
+				}
+				for _, imgData := range imagesData {
+					img, ok := imgData.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					filename, _ := img["filename"].(string)
+					subfolder, _ := img["subfolder"].(string)
+					imgType, _ := img["type"].(string)
+					if filename != "" {
+						// 构建图片URL
+						imgURL := fmt.Sprintf("%s/view?filename=%s", serverURL, filename)
+						if subfolder != "" {
+							imgURL += fmt.Sprintf("&subfolder=%s", subfolder)
+						}
+						if imgType != "" {
+							imgURL += fmt.Sprintf("&type=%s", imgType)
+						}
+						images = append(images, map[string]string{
+							"url":      imgURL,
+							"filename": filename,
+							"nodeId":   nodeId,
+						})
+					}
+				}
+			}
+
+			return map[string]interface{}{
+				"completed": true,
+				"progress":  100,
+				"message":  "执行完成",
+				"images":   images,
+			}, nil
+		}
+	}
+
+	return map[string]interface{}{
+		"completed": false,
+		"progress":  0,
+		"message":  "等待执行",
+	}, nil
+}
+
+// restartApplication 重启应用
+func restartApplication() {
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Printf("获取可执行文件路径失败: %v", err)
+		return
+	}
+
+	absPath, err := filepath.Abs(exePath)
+	if err != nil {
+		log.Printf("获取绝对路径失败: %v", err)
+		return
+	}
+
+	// Windows 上使用 cmd.exe 启动新进程
+	if runtime.GOOS == "windows" {
+		cmd := exec.Command("cmd.exe", "/c", "start", "", absPath)
+		cmd.Dir = filepath.Dir(absPath)
+		if err := cmd.Start(); err != nil {
+			log.Printf("启动新进程失败: %v", err)
+			return
+		}
+	} else {
+		// Linux/Mac 上直接执行
+		cmd := exec.Command(absPath)
+		cmd.Dir = filepath.Dir(absPath)
+		if err := cmd.Start(); err != nil {
+			log.Printf("启动新进程失败: %v", err)
+			return
+		}
+	}
+
+	// 延迟退出，给新进程启动时间
+	time.Sleep(2 * time.Second)
+	os.Exit(0)
 }

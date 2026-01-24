@@ -4,3 +4,5 @@ winres/
 *.syso
 go.mod
 go.sum
+*.7z
+release

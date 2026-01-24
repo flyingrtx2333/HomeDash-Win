@@ -6,6 +6,7 @@
     <title>HomeDash Win</title>
     <link rel="icon" type="image/png" href="/static/images/logo16.png" />
     <link rel="stylesheet" href="/static/styles.css" />
+
   </head>
   <body>
     <!-- 背景层 -->
@@ -43,9 +44,17 @@
             <span class="nav-icon">🐳</span>
             <span>Docker</span>
           </a>
+          <a class="nav-item" data-page="ai">
+            <span class="nav-icon">🎨</span>
+            <span>AI绘画</span>
+          </a>
+          <a class="nav-item" data-page="settings">
+            <span class="nav-icon">⚙️</span>
+            <span>设置</span>
+          </a>
         </nav>
         <div class="sidebar-footer">
-          HomeDash v1.0
+          HomeDash v0.2.0
         </div>
       </aside>
 
@@ -65,20 +74,24 @@
           </div>
           <!-- 状态小图标 -->
           <div class="top-bar-stats" id="topBarStats">
+            <div class="stat-mini" title="网页延迟">
+              <img class="stat-icon" src="/static/images/internet.png" alt="延迟" />
+              <span class="stat-value" id="topWebPing">--ms</span>
+            </div>
             <div class="stat-mini" title="CPU">
-              <span class="stat-icon">💻</span>
+              <img class="stat-icon" src="/static/images/cpu.png" alt="CPU" />
               <span class="stat-value" id="topCpu">--%</span>
             </div>
             <div class="stat-mini" title="内存">
-              <span class="stat-icon">🧠</span>
+              <img class="stat-icon" src="/static/images/memory.png" alt="内存" />
               <span class="stat-value" id="topMem">--%</span>
             </div>
             <div class="stat-mini" title="GPU">
-              <span class="stat-icon">🎮</span>
+              <img class="stat-icon" src="/static/images/gpu.png" alt="GPU" />
               <span class="stat-value" id="topGpu">--%</span>
             </div>
             <div class="stat-mini stat-network" title="网络">
-              <span class="stat-icon">🌐</span>
+              <img class="stat-icon" src="/static/images/cloud.png" alt="网络" />
               <span class="stat-value">
                 <span class="net-up">↑<span id="topNetUp">--</span></span>
                 <span class="net-down">↓<span id="topNetDown">--</span></span>
@@ -354,6 +367,130 @@
               </table>
             </div>
           </div>
+
+          <!-- AI绘画页面 -->
+          <div class="page-view" id="page-ai">
+            <div class="section-header">
+              <div style="flex: 1;">
+                <h2>AI绘画</h2>
+                <div id="workflowProgressHeader" style="display: none; margin-top: 12px;">
+                  <div class="progress-bar" style="width: 100%; height: 10px; margin-bottom: 6px;">
+                    <div class="progress-fill" id="workflowProgressFillHeader"></div>
+                  </div>
+                  <span id="workflowProgressTextHeader" style="font-size: 13px; color: var(--text-secondary);">等待执行...</span>
+                </div>
+              </div>
+              <div class="ai-header-actions">
+                <span class="comfyui-url-display" id="currentComfyUIUrlDisplay" title="ComfyUI服务器地址">-</span>
+                <button class="btn-outline" id="aiConfigBtn" title="配置ComfyUI">⚙️</button>
+                <button class="btn-outline" id="testComfyUIConnectionBtn" title="测试连接">🔗</button>
+              </div>
+            </div>
+
+            <!-- 工作流卡片列表 -->
+            <div class="section-header">
+              <h3>工作流</h3>
+            </div>
+            <div class="workflow-grid" id="workflowGrid">
+              <!-- 工作流卡片将由 JS 动态生成 -->
+            </div>
+
+            <!-- ComfyUI配置弹窗 -->
+            <div class="workflow-popup" id="comfyuiConfigModal" style="width: 360px;">
+              <div class="workflow-popup-content">
+                <div class="modal-header">
+                  <h3>ComfyUI配置</h3>
+                  <button class="modal-close" id="closeComfyUIConfigModal">×</button>
+                </div>
+                <div class="modal-body">
+                  <div class="form-group">
+                    <label>服务器地址</label>
+                    <input type="text" class="form-control" id="comfyuiServerUrl" placeholder="例如: http://localhost:8188" />
+                    <small class="form-hint">配置ComfyUI服务器地址</small>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn-secondary" id="cancelComfyUIConfigBtn">取消</button>
+                  <button class="btn-outline" id="saveComfyUIConfigBtn">保存</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 工作流执行面板（弹窗） -->
+            <div class="workflow-popup" id="workflowExecuteModal">
+              <div class="workflow-popup-content">
+                <div class="modal-header">
+                  <h3 id="workflowExecuteTitle">执行工作流</h3>
+                  <button class="modal-close" id="closeWorkflowExecuteModal">×</button>
+                </div>
+                <div class="modal-body">
+                  <div id="workflowParamsForm">
+                    <!-- 参数表单将由 JS 动态生成 -->
+                  </div>
+                  <div id="workflowProgress" style="display: none; margin-top: 20px;">
+                    <div class="progress-bar">
+                      <div class="progress-fill" id="workflowProgressFill"></div>
+                    </div>
+                    <p id="workflowProgressText">正在执行...</p>
+                  </div>
+                  <div id="workflowResult" style="display: none; margin-top: 20px;">
+                    <h4>生成结果</h4>
+                    <div id="workflowResultImages" class="workflow-result-images">
+                      <!-- 结果图片将由 JS 动态生成 -->
+                    </div>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn-secondary" id="cancelWorkflowExecuteBtn">取消</button>
+                  <button class="btn-outline" id="executeWorkflowBtn">执行</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 设置页面 -->
+          <div class="page-view" id="page-settings">
+            <div class="section-header">
+              <h2>应用设置</h2>
+            </div>
+
+            <!-- 应用端口设置 -->
+            <div class="settings-card">
+              <h3>应用端口</h3>
+              <p class="settings-desc">修改端口后需要重启应用才能生效</p>
+              <div class="settings-input-group">
+                <label>端口号：</label>
+                <input type="text" id="appPortInput" placeholder="例如: 29678" />
+                <button class="btn-outline" id="savePortBtn">保存</button>
+              </div>
+              <div class="settings-status">
+                <span>当前运行端口：<strong id="currentPort">-</strong></span>
+              </div>
+            </div>
+
+            <!-- 应用开机自启设置 -->
+            <div class="settings-card">
+              <h3>开机自启</h3>
+              <p class="settings-desc">设置应用是否在系统启动时自动运行</p>
+              <div class="settings-toggle-group">
+                <label>启用开机自启</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="appAutoStartToggle" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="settings-status">
+                <span>当前状态：<strong id="appAutoStartStatus">-</strong></span>
+              </div>
+            </div>
+
+            <!-- 应用重启 -->
+            <div class="settings-card">
+              <h3>重启面板</h3>
+              <p class="settings-desc">重启应用以应用配置更改</p>
+              <button class="btn-outline" id="restartAppBtn">🔄 重启面板</button>
+            </div>
+          </div>
         </div>
 
         <!-- 页脚 -->
@@ -368,8 +505,11 @@
       </main>
     </div>
 
+    <!-- Toast 容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <!-- 设置按钮 -->
-    <button class="settings-btn" id="settingsBtn" title="设置背景">⚙️</button>
+    <button class="settings-btn" id="settingsBtn" title="设置背景">👕</button>
 
     <!-- 设置面板 -->
     <div class="settings-panel" id="settingsPanel">
@@ -398,51 +538,79 @@
           <h3 id="modalTitle">添加服务</h3>
           <button class="modal-close" id="modalClose">&times;</button>
         </div>
-        <form id="serviceForm">
-          <div class="form-group">
-            <label for="serviceName">服务名称 *</label>
-            <input type="text" id="serviceName" required placeholder="例如: Alist" />
-          </div>
-          <div class="form-group">
-            <label for="serviceDesc">描述</label>
-            <input type="text" id="serviceDesc" placeholder="例如: 多网盘整合" />
-          </div>
-          <div class="form-group">
-            <label for="servicePort">端口号</label>
-            <div class="port-input-group">
-              <input type="number" id="servicePort" placeholder="例如: 5244 (留空表示本地应用)" />
-              <button type="button" class="btn-fetch-icon" id="fetchFaviconBtn" title="自动获取图标">🔍 获取图标</button>
+        <form id="serviceForm" class="service-form-two-column">
+          <!-- 左列 -->
+          <div class="form-column-left">
+            <div class="form-group">
+              <label for="serviceName">服务名称 *</label>
+              <input type="text" id="serviceName" required placeholder="例如: Alist" />
             </div>
-          </div>
-          <div class="form-group">
-            <label>图标</label>
-            <!-- 图标上传区域 -->
-            <div class="icon-upload-zone" id="iconUploadZone">
-              <div class="upload-preview" id="uploadPreview"></div>
-              <div class="upload-hint" id="uploadHint">
-                <span class="upload-icon">📤</span>
-                <p>拖拽图片到此处或点击上传</p>
-                <span class="upload-tip">支持 PNG, JPG, GIF, WebP, ICO (最大 2MB)</span>
+            <div class="form-group">
+              <label for="serviceDesc">描述</label>
+              <input type="text" id="serviceDesc" placeholder="例如: 多网盘整合" />
+            </div>
+            <div class="form-group">
+              <label for="servicePort">端口号</label>
+              <div class="port-input-group">
+                <input type="number" id="servicePort" placeholder="例如: 5244 (留空表示本地应用)" />
+                <button type="button" class="btn-fetch-icon" id="fetchFaviconBtn" title="自动获取图标">🔍 获取图标</button>
               </div>
-              <input type="file" id="iconFileInput" accept="image/*" hidden />
             </div>
-            <!-- Emoji 快捷选择 -->
-            <div class="icon-selector" id="iconSelector">
-              <div class="icon-option" data-icon="🌐">🌐</div>
-              <div class="icon-option" data-icon="📁">📁</div>
-              <div class="icon-option" data-icon="🎬">🎬</div>
-              <div class="icon-option" data-icon="📷">📷</div>
-              <div class="icon-option" data-icon="🎮">🎮</div>
-              <div class="icon-option" data-icon="💾">💾</div>
-              <div class="icon-option" data-icon="🔧">🔧</div>
-              <div class="icon-option" data-icon="🍀">🍀</div>
-              <div class="icon-option" data-icon="☀️">☀️</div>
-              <div class="icon-option" data-icon="🌙">🌙</div>
-              <div class="icon-option" data-icon="🖥️">🖥️</div>
-              <div class="icon-option" data-icon="🤖">🤖</div>
+            <div class="form-group">
+              <label>图标</label>
+              <!-- 图标上传区域 -->
+              <div class="icon-upload-zone" id="iconUploadZone">
+                <div class="upload-preview" id="uploadPreview"></div>
+                <div class="upload-hint" id="uploadHint">
+                  <span class="upload-icon">📤</span>
+                  <p>拖拽图片到此处或点击上传</p>
+                  <span class="upload-tip">支持 PNG, JPG, GIF, WebP, ICO (最大 2MB)</span>
+                </div>
+                <input type="file" id="iconFileInput" accept="image/*" hidden />
+              </div>
+              <!-- Emoji 快捷选择 -->
+              <div class="icon-selector" id="iconSelector">
+                <div class="icon-option" data-icon="🌐">🌐</div>
+                <div class="icon-option" data-icon="📁">📁</div>
+                <div class="icon-option" data-icon="🎬">🎬</div>
+                <div class="icon-option" data-icon="📷">📷</div>
+                <div class="icon-option" data-icon="🎮">🎮</div>
+                <div class="icon-option" data-icon="💾">💾</div>
+                <div class="icon-option" data-icon="🔧">🔧</div>
+                <div class="icon-option" data-icon="🍀">🍀</div>
+                <div class="icon-option" data-icon="☀️">☀️</div>
+                <div class="icon-option" data-icon="🌙">🌙</div>
+                <div class="icon-option" data-icon="🖥️">🖥️</div>
+                <div class="icon-option" data-icon="🤖">🤖</div>
+              </div>
+              <div class="form-group" style="margin-top: 10px;">
+                <input type="text" id="serviceIcon" placeholder="或输入图片路径: /static/images/xxx.png" />
+              </div>
             </div>
-            <div class="form-group" style="margin-top: 10px;">
-              <input type="text" id="serviceIcon" placeholder="或输入图片路径: /static/images/xxx.png" />
+          </div>
+          <!-- 右列 -->
+          <div class="form-column-right">
+            <div class="form-group">
+              <label>高级选项（启动配置）</label>
+              <div class="advanced-options" id="advancedOptions">
+                <div class="form-group" style="margin-top: 12px;">
+                  <label for="serviceLaunchCommand">启动命令</label>
+                  <textarea id="serviceLaunchCommand" rows="3" placeholder='例如: C:\Program Files\Alist\alist.exe server --data "C:\Alist"'></textarea>
+                  <small class="form-hint">支持多行命令和参数，完整启动命令（包含可执行文件路径和所有参数）</small>
+                </div>
+                <div class="form-group">
+                  <label for="serviceProcessName">进程名 *</label>
+                  <input type="text" id="serviceProcessName" placeholder="例如: alist.exe" />
+                  <small class="form-hint">用于进程检测和停止，必须填写（例如：alist.exe）</small>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-checkbox-label">
+                <input type="checkbox" id="serviceAutoStart" />
+                <span>开机自启</span>
+              </label>
+              <small class="form-hint">启用后，系统启动时会自动运行该服务（需要先配置启动命令）</small>
             </div>
           </div>
           <div class="form-actions">
@@ -499,1309 +667,7 @@
       </div>
     </div>
 
-    <script>
-      // ========== 全局变量 ==========
-      const bgLayer = document.getElementById('bgLayer');
-      const settingsBtn = document.getElementById('settingsBtn');
-      const settingsPanel = document.getElementById('settingsPanel');
-      const bgGrid = document.getElementById('bgGrid');
-      const serverIpInput = document.getElementById('serverIp');
-      const sidebar = document.getElementById('sidebar');
-      const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-      const servicesGrid = document.getElementById('servicesGrid');
-      const emptyState = document.getElementById('emptyState');
-
-      let presetBackgrounds = [];
-      let currentSettings = { serverIp: 'localhost', backgroundUrl: '' };
-      let services = [];
-      let pingResults = {}; // 存储连通性检测结果
-      let saveTimer = null;
-      let monitorWs = null;
-      let reconnectTimer = null;
-      let editingServiceId = null;
-      let pingInterval = null;
-
-      // 文件管理相关
-      let currentFilePath = '/';
-      let deletingFilePath = null;
-
-      // 终端相关
-      let terminalWs = null;
-      let terminalHistory = [];
-      let historyIndex = -1;
-
-      // ========== 服务管理 ==========
-      async function loadServices() {
-        try {
-          const response = await fetch('/api/services');
-          if (response.ok) {
-            services = await response.json();
-          }
-        } catch (e) {
-          console.log('加载服务列表失败');
-        }
-        renderServices();
-      }
-
-      function renderServices() {
-        // 显示/隐藏空状态
-        if (services.length === 0) {
-          servicesGrid.style.display = 'none';
-          emptyState.style.display = 'flex';
-          return;
-        }
-        servicesGrid.style.display = 'grid';
-        emptyState.style.display = 'none';
-
-        const ip = currentSettings.serverIp || 'localhost';
-        servicesGrid.innerHTML = services.map(service => {
-          const isEnabled = service.enabled && service.port > 0;
-          const url = isEnabled ? `http://${ip}:${service.port}` : '#';
-          const linkText = isEnabled ? url : '本地应用';
-          const cardClass = isEnabled ? 'card service-card' : 'card service-card card-disabled';
-          const isImage = service.icon && service.icon.startsWith('/');
-          const iconHtml = isImage 
-            ? `<img class="card-icon" src="${service.icon}" alt="${service.name}" />`
-            : `<div class="card-icon">${service.icon || '🌐'}</div>`;
-          
-          // 连通状态指示器
-          const ping = pingResults[service.id];
-          let statusHtml = '';
-          if (isEnabled && ping) {
-            const statusClass = ping.status === 'ok' ? 'status-ok' : 
-                               ping.status === 'slow' ? 'status-slow' : 'status-error';
-            const statusIcon = ping.status === 'ok' ? '✓' : 
-                              ping.status === 'slow' ? '⚠' : '✗';
-            const latencyText = ping.latency > 0 ? `${ping.latency}ms` : '';
-            statusHtml = `<div class="ping-status ${statusClass}"><span>${statusIcon}</span><span>${latencyText}</span></div>`;
-          } else if (isEnabled) {
-            statusHtml = `<div class="ping-status status-unknown"><span>?</span></div>`;
-          }
-          
-          return `
-            <div class="${cardClass}" data-id="${service.id}" data-port="${service.port || 0}">
-              <div class="card-actions">
-                <button class="card-action-btn edit-btn" data-id="${service.id}" title="编辑">✏️</button>
-                <button class="card-action-btn delete-btn" data-id="${service.id}" title="删除">🗑️</button>
-              </div>
-              ${statusHtml}
-              ${isEnabled ? `<a href="${url}" target="_blank" rel="noreferrer" class="card-link">` : '<div class="card-link">'}
-                ${iconHtml}
-                <h3>${service.name}</h3>
-                <p>${service.description || ''}</p>
-                <span class="link">${linkText}</span>
-              ${isEnabled ? '</a>' : '</div>'}
-            </div>
-          `;
-        }).join('');
-
-        // 绑定编辑/删除事件
-        document.querySelectorAll('.edit-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openEditModal(btn.dataset.id);
-          });
-        });
-
-        document.querySelectorAll('.delete-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openDeleteModal(btn.dataset.id);
-          });
-        });
-      }
-
-      function updateServiceLinks() {
-        const ip = currentSettings.serverIp || 'localhost';
-        document.querySelectorAll('.service-card').forEach(card => {
-          const port = parseInt(card.dataset.port);
-          if (port > 0) {
-            const url = `http://${ip}:${port}`;
-            const link = card.querySelector('.card-link');
-            if (link && link.tagName === 'A') {
-              link.href = url;
-            }
-            const linkText = card.querySelector('.link');
-            if (linkText) {
-              linkText.textContent = url;
-            }
-          }
-        });
-      }
-
-      // ========== 连通性检测 ==========
-      async function pingAllServices() {
-        const btn = document.getElementById('pingAllBtn');
-        btn.disabled = true;
-        btn.textContent = '🔄 检测中...';
-        
-        try {
-          const response = await fetch('/api/ping-all');
-          if (response.ok) {
-            const results = await response.json();
-            results.forEach(r => {
-              pingResults[r.id] = r;
-            });
-            renderServices();
-          }
-        } catch (e) {
-          console.log('连通性检测失败');
-        }
-        
-        btn.disabled = false;
-        btn.textContent = '🔍 检测连通';
-      }
-
-      // ========== 模板导入 ==========
-      async function importTemplate() {
-        if (!confirm('是否导入推荐服务模板？已存在的同名服务不会重复添加。')) return;
-        
-        try {
-          const response = await fetch('/api/services/import-template', { method: 'POST' });
-          if (response.ok) {
-            await loadServices();
-            alert('导入成功！');
-          }
-        } catch (e) {
-          alert('导入失败');
-        }
-      }
-
-      // ========== Favicon 抓取 ==========
-      async function fetchFavicon() {
-        const port = document.getElementById('servicePort').value;
-        if (!port) {
-          alert('请先填写端口号');
-          return;
-        }
-        
-        const ip = currentSettings.serverIp || 'localhost';
-        const url = `http://${ip}:${port}`;
-        
-        const btn = document.getElementById('fetchFaviconBtn');
-        btn.disabled = true;
-        btn.textContent = '获取中...';
-        
-        try {
-          const response = await fetch(`/api/favicon?url=${encodeURIComponent(url)}`);
-          const result = await response.json();
-          
-          if (result.success && result.icon) {
-            document.getElementById('serviceIcon').value = result.icon;
-            document.querySelectorAll('.icon-option').forEach(o => o.classList.remove('active'));
-            alert('图标获取成功！');
-          } else {
-            alert('无法获取图标: ' + (result.error || '未知错误'));
-          }
-        } catch (e) {
-          alert('获取图标失败');
-        }
-        
-        btn.disabled = false;
-        btn.textContent = '🔍 获取图标';
-      }
-
-      // ========== 进程管理 ==========
-      async function loadProcesses() {
-        const tbody = document.getElementById('processTableBody');
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载中...</td></tr>';
-        
-        try {
-          const response = await fetch('/api/processes');
-          if (response.ok) {
-            const processes = await response.json();
-            renderProcesses(processes);
-          }
-        } catch (e) {
-          tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载失败</td></tr>';
-        }
-      }
-
-      function renderProcesses(processes) {
-        const tbody = document.getElementById('processTableBody');
-        if (!processes || processes.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" class="loading-row">暂无数据</td></tr>';
-          return;
-        }
-        
-        tbody.innerHTML = processes.map(p => {
-          const cpuClass = p.cpu > 50 ? 'high' : p.cpu > 20 ? 'medium' : '';
-          return `
-            <tr>
-              <td class="pid">${p.pid}</td>
-              <td class="name">${p.name}</td>
-              <td class="cpu ${cpuClass}">${p.cpu.toFixed(1)}%</td>
-              <td class="memory">${formatBytes(p.memory)}</td>
-              <td class="status">${p.status || '-'}</td>
-            </tr>
-          `;
-        }).join('');
-      }
-
-      // ========== 弹窗管理 ==========
-      const serviceModal = document.getElementById('serviceModal');
-      const serviceForm = document.getElementById('serviceForm');
-      const modalTitle = document.getElementById('modalTitle');
-      const addServiceBtn = document.getElementById('addServiceBtn');
-      const modalClose = document.getElementById('modalClose');
-      const cancelBtn = document.getElementById('cancelBtn');
-
-      const deleteModal = document.getElementById('deleteModal');
-      const deleteServiceName = document.getElementById('deleteServiceName');
-      const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
-      const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-      let deletingServiceId = null;
-
-      addServiceBtn.addEventListener('click', () => {
-        editingServiceId = null;
-        modalTitle.textContent = '添加服务';
-        serviceForm.reset();
-        resetIconUpload();
-        document.querySelectorAll('.icon-option').forEach(opt => opt.classList.remove('active'));
-        document.querySelector('.icon-option[data-icon="🌐"]').classList.add('active');
-        serviceModal.classList.add('active');
-      });
-
-      function openEditModal(id) {
-        const service = services.find(s => s.id === id);
-        if (!service) return;
-        
-        editingServiceId = id;
-        modalTitle.textContent = '编辑服务';
-        document.getElementById('serviceName').value = service.name;
-        document.getElementById('serviceDesc').value = service.description || '';
-        document.getElementById('servicePort').value = service.port || '';
-        
-        // 设置图标
-        const isImage = service.icon && service.icon.startsWith('/');
-        document.getElementById('serviceIcon').value = isImage ? service.icon : '';
-        
-        // 重置上传区域
-        resetIconUpload();
-        
-        if (isImage) {
-          // 显示已有图标预览
-          showIconPreview(service.icon, '当前图标');
-        } else {
-          // 选中对应的 emoji
-          document.querySelectorAll('.icon-option').forEach(opt => {
-            opt.classList.toggle('active', opt.dataset.icon === service.icon);
-          });
-        }
-        
-        serviceModal.classList.add('active');
-      }
-
-      function openDeleteModal(id) {
-        const service = services.find(s => s.id === id);
-        if (!service) return;
-        
-        deletingServiceId = id;
-        deleteServiceName.textContent = service.name;
-        deleteModal.classList.add('active');
-      }
-
-      function closeModals() {
-        serviceModal.classList.remove('active');
-        deleteModal.classList.remove('active');
-        editingServiceId = null;
-        deletingServiceId = null;
-        // 重置上传区域
-        resetIconUpload();
-      }
-
-      function resetIconUpload() {
-        const zone = document.getElementById('iconUploadZone');
-        const preview = document.getElementById('uploadPreview');
-        zone.classList.remove('has-preview');
-        preview.innerHTML = '';
-        document.getElementById('iconFileInput').value = '';
-      }
-
-      modalClose.addEventListener('click', closeModals);
-      cancelBtn.addEventListener('click', closeModals);
-      cancelDeleteBtn.addEventListener('click', closeModals);
-
-      // ========== 图标上传/拖拽 ==========
-      const iconUploadZone = document.getElementById('iconUploadZone');
-      const iconFileInput = document.getElementById('iconFileInput');
-
-      iconUploadZone.addEventListener('click', () => {
-        iconFileInput.click();
-      });
-
-      iconUploadZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        iconUploadZone.classList.add('dragover');
-      });
-
-      iconUploadZone.addEventListener('dragleave', () => {
-        iconUploadZone.classList.remove('dragover');
-      });
-
-      iconUploadZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        iconUploadZone.classList.remove('dragover');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-          handleIconFile(files[0]);
-        }
-      });
-
-      iconFileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-          handleIconFile(e.target.files[0]);
-        }
-      });
-
-      async function handleIconFile(file) {
-        // 验证文件类型
-        if (!file.type.startsWith('image/')) {
-          alert('请选择图片文件');
-          return;
-        }
-
-        // 验证文件大小
-        if (file.size > 2 * 1024 * 1024) {
-          alert('文件过大，最大 2MB');
-          return;
-        }
-
-        // 上传文件
-        const formData = new FormData();
-        formData.append('icon', file);
-
-        try {
-          const response = await fetch('/api/upload-icon', {
-            method: 'POST',
-            body: formData
-          });
-          const result = await response.json();
-
-          if (result.success) {
-            // 显示预览
-            showIconPreview(result.icon, file.name);
-            // 设置到隐藏字段
-            document.getElementById('serviceIcon').value = result.icon;
-            // 取消 emoji 选择
-            document.querySelectorAll('.icon-option').forEach(o => o.classList.remove('active'));
-          } else {
-            alert('上传失败: ' + (result.error || '未知错误'));
-          }
-        } catch (e) {
-          alert('上传失败');
-        }
-      }
-
-      function showIconPreview(iconUrl, fileName) {
-        const zone = document.getElementById('iconUploadZone');
-        const preview = document.getElementById('uploadPreview');
-        
-        zone.classList.add('has-preview');
-        preview.innerHTML = `
-          <img src="${iconUrl}" alt="icon" />
-          <div class="preview-info">
-            <div class="preview-name">${fileName}</div>
-            <div class="preview-change">点击更换</div>
-          </div>
-        `;
-      }
-
-      // 图标选择 (Emoji)
-      document.querySelectorAll('.icon-option').forEach(opt => {
-        opt.addEventListener('click', () => {
-          document.querySelectorAll('.icon-option').forEach(o => o.classList.remove('active'));
-          opt.classList.add('active');
-          document.getElementById('serviceIcon').value = '';
-          resetIconUpload();
-        });
-      });
-
-      // 保存服务
-      serviceForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const activeIcon = document.querySelector('.icon-option.active');
-        const customIcon = document.getElementById('serviceIcon').value.trim();
-        const icon = customIcon || (activeIcon ? activeIcon.dataset.icon : '🌐');
-        
-        const data = {
-          name: document.getElementById('serviceName').value.trim(),
-          description: document.getElementById('serviceDesc').value.trim(),
-          port: parseInt(document.getElementById('servicePort').value) || 0,
-          icon: icon,
-          enabled: parseInt(document.getElementById('servicePort').value) > 0
-        };
-
-        try {
-          let response;
-          if (editingServiceId) {
-            response = await fetch(`/api/services/${editingServiceId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data)
-            });
-          } else {
-            response = await fetch('/api/services', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data)
-            });
-          }
-
-          if (response.ok) {
-            closeModals();
-            await loadServices();
-          }
-        } catch (e) {
-          console.log('保存失败');
-        }
-      });
-
-      // 删除服务
-      confirmDeleteBtn.addEventListener('click', async () => {
-        if (!deletingServiceId) return;
-        
-        try {
-          const response = await fetch(`/api/services/${deletingServiceId}`, {
-            method: 'DELETE'
-          });
-          if (response.ok) {
-            closeModals();
-            await loadServices();
-          }
-        } catch (e) {
-          console.log('删除失败');
-        }
-      });
-
-      // 点击遮罩关闭
-      serviceModal.addEventListener('click', (e) => {
-        if (e.target === serviceModal) closeModals();
-      });
-      deleteModal.addEventListener('click', (e) => {
-        if (e.target === deleteModal) closeModals();
-      });
-
-      // ========== 页面导航 ==========
-      document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const page = item.dataset.page;
-          switchPage(page);
-          sidebar.classList.remove('open');
-        });
-      });
-
-      function switchPage(pageName) {
-        document.querySelectorAll('.nav-item').forEach(nav => {
-          nav.classList.toggle('active', nav.dataset.page === pageName);
-        });
-        document.querySelectorAll('.page-view').forEach(view => {
-          view.classList.toggle('active', view.id === `page-${pageName}`);
-        });
-        
-        // WebSocket 始终保持连接（用于顶部栏状态显示）
-        connectMonitorWs();
-        
-        if (pageName === 'process') {
-          loadProcesses();
-        } else if (pageName === 'files') {
-          loadWebdavRoot();
-          loadFiles(currentFilePath);
-          updateWebdavUrl();
-        } else if (pageName === 'ssh') {
-          connectTerminal();
-        } else if (pageName === 'docker') {
-          loadDockerContainers();
-        }
-      }
-
-      mobileMenuBtn.addEventListener('click', () => {
-        sidebar.classList.toggle('open');
-      });
-
-      // ========== WebSocket 监控 ==========
-      function connectMonitorWs() {
-        if (monitorWs && monitorWs.readyState === WebSocket.OPEN) return;
-        
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/monitor`;
-        
-        monitorWs = new WebSocket(wsUrl);
-        
-        monitorWs.onopen = () => {
-          updateConnectionStatus(true);
-          if (reconnectTimer) {
-            clearTimeout(reconnectTimer);
-            reconnectTimer = null;
-          }
-        };
-        
-        monitorWs.onmessage = (event) => {
-          const stats = JSON.parse(event.data);
-          updateMonitorUI(stats);
-        };
-        
-        monitorWs.onclose = () => {
-          updateConnectionStatus(false);
-          if (document.getElementById('page-monitor').classList.contains('active')) {
-            reconnectTimer = setTimeout(connectMonitorWs, 3000);
-          }
-        };
-        
-        monitorWs.onerror = () => {
-          updateConnectionStatus(false);
-        };
-      }
-
-      function disconnectMonitorWs() {
-        if (reconnectTimer) {
-          clearTimeout(reconnectTimer);
-          reconnectTimer = null;
-        }
-        if (monitorWs) {
-          monitorWs.close();
-          monitorWs = null;
-        }
-      }
-
-      function updateConnectionStatus(connected) {
-        const dot = document.getElementById('statusDot');
-        const text = document.getElementById('statusText');
-        dot.classList.toggle('connected', connected);
-        text.textContent = connected ? '已连接 · 实时更新中' : '连接断开 · 正在重连...';
-      }
-
-      function updateTopBarStats(stats) {
-        // CPU
-        document.getElementById('topCpu').textContent = Math.round(stats.cpu.usage) + '%';
-        
-        // 内存
-        document.getElementById('topMem').textContent = Math.round(stats.memory.usedPercent) + '%';
-        
-        // GPU
-        if (stats.gpu.available) {
-          document.getElementById('topGpu').textContent = Math.round(stats.gpu.usage) + '%';
-        } else {
-          document.getElementById('topGpu').textContent = 'N/A';
-        }
-        
-        // 网络
-        if (stats.network) {
-          document.getElementById('topNetUp').textContent = formatSpeedShort(stats.network.speedSent);
-          document.getElementById('topNetDown').textContent = formatSpeedShort(stats.network.speedRecv);
-        }
-      }
-
-      function formatSpeedShort(bytesPerSec) {
-        if (bytesPerSec === 0) return '0';
-        const k = 1024;
-        if (bytesPerSec < k) return bytesPerSec + 'B';
-        if (bytesPerSec < k * k) return Math.round(bytesPerSec / k) + 'K';
-        if (bytesPerSec < k * k * k) return (bytesPerSec / k / k).toFixed(1) + 'M';
-        return (bytesPerSec / k / k / k).toFixed(1) + 'G';
-      }
-
-      function updateMonitorUI(stats) {
-        // 更新顶部栏状态小图标
-        updateTopBarStats(stats);
-        
-        updateRing('cpuRing', stats.cpu.usage);
-        document.getElementById('cpuValue').textContent = Math.round(stats.cpu.usage);
-        document.getElementById('cpuModel').textContent = stats.cpu.modelName || '-';
-        document.getElementById('cpuCores').textContent = `${stats.cpu.cores} 核心`;
-        
-        // CPU 温度
-        const cpuTempEl = document.getElementById('cpuTemp');
-        if (stats.cpu.temperature > 0) {
-          cpuTempEl.style.display = 'flex';
-          cpuTempEl.querySelector('.temp-value').textContent = Math.round(stats.cpu.temperature);
-          cpuTempEl.className = 'temp-badge' + getTempClass(stats.cpu.temperature);
-        } else {
-          cpuTempEl.style.display = 'none';
-        }
-        
-        updateRing('memoryRing', stats.memory.usedPercent);
-        document.getElementById('memoryValue').textContent = Math.round(stats.memory.usedPercent);
-        document.getElementById('memoryUsed').textContent = 
-          `${formatBytes(stats.memory.used)} / ${formatBytes(stats.memory.total)}`;
-        document.getElementById('memoryAvailable').textContent = 
-          `可用: ${formatBytes(stats.memory.available)}`;
-        
-        if (stats.gpu.available) {
-          document.getElementById('gpuContent').style.display = 'block';
-          document.getElementById('gpuUnavailable').style.display = 'none';
-          updateRing('gpuRing', stats.gpu.usage);
-          document.getElementById('gpuValue').textContent = Math.round(stats.gpu.usage);
-          document.getElementById('gpuModel').textContent = stats.gpu.name || '-';
-          document.getElementById('gpuMemory').textContent = 
-            `显存: ${stats.gpu.memoryUsed} / ${stats.gpu.memoryTotal} MB`;
-          
-          // GPU 温度
-          const gpuTempEl = document.getElementById('gpuTemp');
-          if (stats.gpu.temperature > 0) {
-            gpuTempEl.style.display = 'flex';
-            gpuTempEl.querySelector('.temp-value').textContent = Math.round(stats.gpu.temperature);
-            gpuTempEl.className = 'temp-badge' + getTempClass(stats.gpu.temperature);
-          }
-        } else {
-          document.getElementById('gpuContent').style.display = 'none';
-          document.getElementById('gpuUnavailable').style.display = 'block';
-        }
-        
-        // 网络流量
-        if (stats.network) {
-          document.getElementById('netSpeedUp').textContent = formatSpeed(stats.network.speedSent);
-          document.getElementById('netSpeedDown').textContent = formatSpeed(stats.network.speedRecv);
-          document.getElementById('netTotalUp').textContent = formatBytes(stats.network.bytesSent);
-          document.getElementById('netTotalDown').textContent = formatBytes(stats.network.bytesRecv);
-        }
-        
-        updateDisks(stats.disks);
-      }
-
-      function getTempClass(temp) {
-        if (temp >= 80) return ' temp-danger';
-        if (temp >= 60) return ' temp-warning';
-        return '';
-      }
-
-      function updateRing(id, percent) {
-        const ring = document.getElementById(id);
-        const circumference = 2 * Math.PI * 60;
-        const offset = circumference - (percent / 100) * circumference;
-        ring.style.strokeDashoffset = offset;
-      }
-
-      function updateDisks(disks) {
-        const container = document.getElementById('diskList');
-        container.innerHTML = disks.map(disk => {
-          const percent = disk.usedPercent;
-          let barClass = '';
-          if (percent >= 90) barClass = 'danger';
-          else if (percent >= 75) barClass = 'warning';
-          
-          return `
-            <div class="disk-item">
-              <div class="disk-header">
-                <span class="disk-name">${disk.mountPoint}</span>
-                <span class="disk-usage">${formatBytes(disk.used)} / ${formatBytes(disk.total)}</span>
-              </div>
-              <div class="disk-bar">
-                <div class="disk-bar-fill ${barClass}" style="width: ${percent}%"></div>
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
-
-      function formatBytes(bytes) {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-      }
-
-      function formatSpeed(bytesPerSec) {
-        if (bytesPerSec === 0) return '0 B/s';
-        const k = 1024;
-        const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
-        const i = Math.floor(Math.log(bytesPerSec) / Math.log(k));
-        return parseFloat((bytesPerSec / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-      }
-
-      // ========== 设置管理 ==========
-      async function loadSettingsFromServer() {
-        try {
-          const response = await fetch('/api/settings');
-          if (response.ok) {
-            currentSettings = await response.json();
-          }
-        } catch (e) {
-          console.log('无法加载服务器设置');
-        }
-        applySettings();
-      }
-
-      function saveSettingsToServer() {
-        if (saveTimer) clearTimeout(saveTimer);
-        saveTimer = setTimeout(async () => {
-          try {
-            await fetch('/api/settings', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(currentSettings)
-            });
-          } catch (e) {
-            console.log('保存设置失败');
-          }
-        }, 500);
-      }
-
-      async function loadPresetBackgrounds() {
-        try {
-          const response = await fetch('/api/backgrounds');
-          if (response.ok) {
-            presetBackgrounds = await response.json();
-          }
-        } catch (e) {
-          console.log('无法加载预设背景');
-        }
-        renderBackgroundOptions();
-      }
-
-      function applySettings() {
-        if (currentSettings.serverIp) {
-          serverIpInput.value = currentSettings.serverIp;
-        }
-        if (currentSettings.backgroundUrl) {
-          bgLayer.style.backgroundImage = `url('${currentSettings.backgroundUrl}')`;
-        }
-        // 应用主题
-        applyTheme(currentSettings.theme || 'dark');
-      }
-
-      function applyTheme(theme) {
-        if (theme === 'light') {
-          document.documentElement.setAttribute('data-theme', 'light');
-          document.getElementById('themeToggle').checked = true;
-        } else {
-          document.documentElement.removeAttribute('data-theme');
-          document.getElementById('themeToggle').checked = false;
-        }
-      }
-
-      // 主题切换事件
-      document.getElementById('themeToggle').addEventListener('change', (e) => {
-        const theme = e.target.checked ? 'light' : 'dark';
-        currentSettings.theme = theme;
-        applyTheme(theme);
-        saveSettingsToServer();
-      });
-
-      serverIpInput.addEventListener('input', (e) => {
-        const ip = e.target.value.trim();
-        if (ip) {
-          currentSettings.serverIp = ip;
-          saveSettingsToServer();
-          updateServiceLinks();
-        }
-      });
-
-      function renderBackgroundOptions() {
-        bgGrid.innerHTML = '';
-        presetBackgrounds.forEach(bg => {
-          const option = document.createElement('div');
-          option.className = 'bg-option' + (currentSettings.backgroundUrl === bg.url ? ' active' : '');
-          option.innerHTML = `<img src="${bg.thumb || bg.url}" alt="${bg.name}" />`;
-          option.addEventListener('click', () => setBackground(bg.url));
-          bgGrid.appendChild(option);
-        });
-      }
-
-      function setBackground(url) {
-        bgLayer.style.backgroundImage = `url('${url}')`;
-        currentSettings.backgroundUrl = url;
-        saveSettingsToServer();
-        document.querySelectorAll('.bg-option').forEach((opt, i) => {
-          opt.classList.toggle('active', presetBackgrounds[i]?.url === url);
-        });
-      }
-
-      settingsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        settingsPanel.classList.toggle('active');
-      });
-
-      document.addEventListener('click', (e) => {
-        if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
-          settingsPanel.classList.remove('active');
-        }
-      });
-
-      // ========== 事件绑定 ==========
-      document.getElementById('pingAllBtn').addEventListener('click', pingAllServices);
-      document.getElementById('importTemplateBtn').addEventListener('click', importTemplate);
-      document.getElementById('emptyImportBtn').addEventListener('click', importTemplate);
-      document.getElementById('fetchFaviconBtn').addEventListener('click', fetchFavicon);
-      document.getElementById('refreshProcessBtn').addEventListener('click', loadProcesses);
-
-      // ========== 文件管理 ==========
-      async function loadFiles(path) {
-        currentFilePath = path;
-        const tbody = document.getElementById('fileTableBody');
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载中...</td></tr>';
-        
-        try {
-          const response = await fetch(`/api/files?path=${encodeURIComponent(path)}`);
-          if (response.ok) {
-            const data = await response.json();
-            renderFiles(data.files || []);
-            renderBreadcrumb(path);
-          } else {
-            tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载失败</td></tr>';
-          }
-        } catch (e) {
-          tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载失败</td></tr>';
-        }
-      }
-
-      function renderFiles(files) {
-        const tbody = document.getElementById('fileTableBody');
-        if (!files || files.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" class="loading-row">文件夹为空</td></tr>';
-          return;
-        }
-        
-        tbody.innerHTML = files.map(file => {
-          const icon = file.isDir ? '📁' : getFileIcon(file.name);
-          const size = file.isDir ? '-' : formatBytes(file.size);
-          const time = new Date(file.modTime).toLocaleString('zh-CN');
-          
-          return `
-            <tr class="file-row" data-path="${file.path}" data-isdir="${file.isDir}">
-              <td class="col-icon">${icon}</td>
-              <td class="col-name">${file.name}</td>
-              <td class="col-size">${size}</td>
-              <td class="col-time">${time}</td>
-              <td class="col-actions">
-                ${file.isDir ? '' : `<button class="btn-icon" onclick="downloadFile('${file.path}')" title="下载">📥</button>`}
-                <button class="btn-icon btn-danger-icon" onclick="openDeleteFileModal('${file.path}', '${file.name}')" title="删除">🗑️</button>
-              </td>
-            </tr>
-          `;
-        }).join('');
-        
-        // 绑定双击事件进入文件夹
-        document.querySelectorAll('.file-row').forEach(row => {
-          row.addEventListener('dblclick', () => {
-            if (row.dataset.isdir === 'true') {
-              loadFiles(row.dataset.path);
-            }
-          });
-        });
-      }
-
-      function renderBreadcrumb(path) {
-        const breadcrumb = document.getElementById('breadcrumb');
-        const parts = path.split('/').filter(p => p);
-        
-        let html = `<span class="breadcrumb-item" data-path="/" onclick="loadFiles('/')">🏠 根目录</span>`;
-        let currentPath = '';
-        
-        parts.forEach((part, index) => {
-          currentPath += '/' + part;
-          const isLast = index === parts.length - 1;
-          html += `<span class="breadcrumb-sep">/</span>`;
-          html += `<span class="breadcrumb-item${isLast ? ' active' : ''}" data-path="${currentPath}" onclick="loadFiles('${currentPath}')">${part}</span>`;
-        });
-        
-        breadcrumb.innerHTML = html;
-      }
-
-      function getFileIcon(filename) {
-        const ext = filename.split('.').pop().toLowerCase();
-        const icons = {
-          'pdf': '📄', 'doc': '📝', 'docx': '📝', 'txt': '📝',
-          'xls': '📊', 'xlsx': '📊', 'csv': '📊',
-          'ppt': '📽️', 'pptx': '📽️',
-          'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️', 'webp': '🖼️', 'svg': '🖼️',
-          'mp3': '🎵', 'wav': '🎵', 'flac': '🎵', 'aac': '🎵',
-          'mp4': '🎬', 'mkv': '🎬', 'avi': '🎬', 'mov': '🎬', 'wmv': '🎬',
-          'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦',
-          'exe': '⚙️', 'msi': '⚙️', 'bat': '⚙️', 'sh': '⚙️',
-          'js': '📜', 'ts': '📜', 'py': '📜', 'go': '📜', 'java': '📜',
-          'html': '🌐', 'css': '🎨', 'json': '📋', 'xml': '📋',
-        };
-        return icons[ext] || '📄';
-      }
-
-      function downloadFile(path) {
-        window.open(`/api/files/download?path=${encodeURIComponent(path)}`, '_blank');
-      }
-
-      function openDeleteFileModal(path, name) {
-        deletingFilePath = path;
-        document.getElementById('deleteFileName').textContent = name;
-        document.getElementById('deleteFileModal').classList.add('active');
-      }
-
-      function closeFileModals() {
-        document.getElementById('newFolderModal').classList.remove('active');
-        document.getElementById('deleteFileModal').classList.remove('active');
-        deletingFilePath = null;
-      }
-
-      // 新建文件夹
-      document.getElementById('newFolderBtn').addEventListener('click', () => {
-        document.getElementById('folderName').value = '';
-        document.getElementById('newFolderModal').classList.add('active');
-      });
-
-      document.getElementById('closeFolderModal').addEventListener('click', closeFileModals);
-      document.getElementById('cancelFolderBtn').addEventListener('click', closeFileModals);
-      document.getElementById('cancelDeleteFileBtn').addEventListener('click', closeFileModals);
-
-      document.getElementById('confirmFolderBtn').addEventListener('click', async () => {
-        const name = document.getElementById('folderName').value.trim();
-        if (!name) {
-          alert('请输入文件夹名称');
-          return;
-        }
-        
-        const newPath = currentFilePath === '/' ? '/' + name : currentFilePath + '/' + name;
-        
-        try {
-          const response = await fetch('/api/files/mkdir', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: newPath })
-          });
-          
-          if (response.ok) {
-            closeFileModals();
-            loadFiles(currentFilePath);
-          } else {
-            alert('创建文件夹失败');
-          }
-        } catch (e) {
-          alert('创建文件夹失败');
-        }
-      });
-
-      // 删除文件
-      document.getElementById('confirmDeleteFileBtn').addEventListener('click', async () => {
-        if (!deletingFilePath) return;
-        
-        try {
-          const response = await fetch(`/api/files?path=${encodeURIComponent(deletingFilePath)}`, {
-            method: 'DELETE'
-          });
-          
-          if (response.ok) {
-            closeFileModals();
-            loadFiles(currentFilePath);
-          } else {
-            alert('删除失败');
-          }
-        } catch (e) {
-          alert('删除失败');
-        }
-      });
-
-      // 上传文件
-      document.getElementById('uploadFileBtn').addEventListener('click', () => {
-        document.getElementById('fileUploadInput').click();
-      });
-
-      document.getElementById('fileUploadInput').addEventListener('change', async (e) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
-        
-        for (const file of files) {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('path', currentFilePath);
-          
-          try {
-            await fetch('/api/files/upload', {
-              method: 'POST',
-              body: formData
-            });
-          } catch (e) {
-            console.log('上传失败:', file.name);
-          }
-        }
-        
-        e.target.value = '';
-        loadFiles(currentFilePath);
-      });
-
-      // WebDAV URL
-      function updateWebdavUrl() {
-        const protocol = window.location.protocol;
-        const host = window.location.host;
-        document.getElementById('webdavUrl').textContent = `${protocol}//${host}/webdav/`;
-      }
-
-      // 加载 WebDAV 根目录
-      async function loadWebdavRoot() {
-        try {
-          const response = await fetch('/api/webdav-root');
-          if (response.ok) {
-            const data = await response.json();
-            document.getElementById('webdavRootInput').value = data.root || '';
-          }
-        } catch (e) {
-          console.log('加载 WebDAV 根目录失败');
-        }
-      }
-
-      // 设置 WebDAV 根目录
-      document.getElementById('setWebdavRootBtn').addEventListener('click', async () => {
-        const root = document.getElementById('webdavRootInput').value.trim();
-        if (!root) {
-          alert('请输入目录路径');
-          return;
-        }
-
-        try {
-          const response = await fetch('/api/webdav-root', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ root })
-          });
-
-          const result = await response.json();
-          if (response.ok) {
-            alert('设置成功！');
-            currentFilePath = '/';
-            loadFiles('/');
-          } else {
-            alert('设置失败: ' + (result.error || '未知错误'));
-          }
-        } catch (e) {
-          alert('设置失败');
-        }
-      });
-
-      document.getElementById('copyWebdavBtn').addEventListener('click', () => {
-        const url = document.getElementById('webdavUrl').textContent;
-        navigator.clipboard.writeText(url).then(() => {
-          alert('已复制到剪贴板');
-        });
-      });
-
-      // 弹窗关闭
-      document.getElementById('newFolderModal').addEventListener('click', (e) => {
-        if (e.target.id === 'newFolderModal') closeFileModals();
-      });
-      document.getElementById('deleteFileModal').addEventListener('click', (e) => {
-        if (e.target.id === 'deleteFileModal') closeFileModals();
-      });
-
-      // ========== SSH 终端 ==========
-      function connectTerminal() {
-        if (terminalWs && terminalWs.readyState === WebSocket.OPEN) return;
-        
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/terminal`;
-        
-        updateTerminalStatus('connecting');
-        terminalWs = new WebSocket(wsUrl);
-        
-        terminalWs.onopen = () => {
-          updateTerminalStatus('connected');
-          // 聚焦输入框
-          document.getElementById('terminalInput').focus();
-        };
-        
-        terminalWs.onmessage = (event) => {
-          appendTerminalOutput(event.data);
-        };
-        
-        terminalWs.onclose = () => {
-          updateTerminalStatus('disconnected');
-        };
-        
-        terminalWs.onerror = () => {
-          updateTerminalStatus('error');
-        };
-      }
-
-      function updateTerminalStatus(status) {
-        const statusEl = document.getElementById('terminalStatus');
-        const dot = statusEl.querySelector('.status-dot');
-        const text = statusEl.querySelector('span:last-child');
-        
-        dot.className = 'status-dot';
-        switch (status) {
-          case 'connected':
-            dot.classList.add('connected');
-            text.textContent = '已连接';
-            break;
-          case 'connecting':
-            text.textContent = '连接中...';
-            break;
-          case 'disconnected':
-            text.textContent = '已断开';
-            break;
-          case 'error':
-            dot.classList.add('error');
-            text.textContent = '连接错误';
-            break;
-        }
-      }
-
-      function appendTerminalOutput(text) {
-        const output = document.getElementById('terminalOutput');
-        const line = document.createElement('div');
-        line.className = 'terminal-line';
-        // 解析 ANSI 颜色代码
-        let html = text
-          .replace(/\x1b\[31m/g, '<span class="text-red">')
-          .replace(/\x1b\[32m/g, '<span class="text-green">')
-          .replace(/\x1b\[33m/g, '<span class="text-yellow">')
-          .replace(/\x1b\[34m/g, '<span class="text-blue">')
-          .replace(/\x1b\[35m/g, '<span class="text-magenta">')
-          .replace(/\x1b\[36m/g, '<span class="text-cyan">')
-          .replace(/\x1b\[0m/g, '</span>');
-        line.innerHTML = html;
-        output.appendChild(line);
-        
-        // 滚动到底部
-        const wrapper = document.getElementById('terminal');
-        wrapper.scrollTop = wrapper.scrollHeight;
-      }
-
-      function sendTerminalCommand() {
-        const input = document.getElementById('terminalInput');
-        const cmd = input.value;
-        if (!terminalWs || terminalWs.readyState !== WebSocket.OPEN) {
-          appendTerminalOutput('<span class="text-red">未连接到终端</span>');
-          return;
-        }
-        
-        // 显示输入的命令（带提示符）
-        const prompt = document.getElementById('terminalPrompt').textContent;
-        appendTerminalOutput(`<span class="text-green">${prompt}</span> ${cmd}`);
-        
-        // 保存到历史（非空命令）
-        if (cmd.trim()) {
-          terminalHistory.push(cmd);
-          historyIndex = terminalHistory.length;
-        }
-        
-        // 发送命令
-        terminalWs.send(cmd);
-        input.value = '';
-      }
-
-      // 终端输入事件
-      document.getElementById('terminalInput').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          sendTerminalCommand();
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          if (historyIndex > 0) {
-            historyIndex--;
-            e.target.value = terminalHistory[historyIndex];
-            // 光标移到末尾
-            setTimeout(() => e.target.setSelectionRange(e.target.value.length, e.target.value.length), 0);
-          }
-        } else if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          if (historyIndex < terminalHistory.length - 1) {
-            historyIndex++;
-            e.target.value = terminalHistory[historyIndex];
-          } else {
-            historyIndex = terminalHistory.length;
-            e.target.value = '';
-          }
-        } else if (e.key === 'c' && e.ctrlKey) {
-          // Ctrl+C 中断
-          if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
-            terminalWs.send('\x03');
-          }
-        } else if (e.key === 'l' && e.ctrlKey) {
-          // Ctrl+L 清屏
-          e.preventDefault();
-          document.getElementById('terminalOutput').innerHTML = '';
-        }
-      });
-
-      // 点击终端区域聚焦输入框
-      document.getElementById('terminal').addEventListener('click', () => {
-        document.getElementById('terminalInput').focus();
-      });
-
-      document.getElementById('connectTerminalBtn').addEventListener('click', () => {
-        if (terminalWs) {
-          terminalWs.close();
-          terminalWs = null;
-        }
-        document.getElementById('terminalOutput').innerHTML = '';
-        connectTerminal();
-      });
-
-      document.getElementById('clearTerminalBtn').addEventListener('click', () => {
-        document.getElementById('terminalOutput').innerHTML = '';
-      });
-
-      // ========== Docker 管理 ==========
-      async function loadDockerContainers() {
-        const tbody = document.getElementById('dockerTableBody');
-        const status = document.getElementById('dockerStatus');
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载中...</td></tr>';
-        
-        try {
-          const response = await fetch('/api/docker/containers');
-          if (response.ok) {
-            const containers = await response.json();
-            renderDockerContainers(containers);
-            
-            if (containers && containers.length > 0) {
-              status.innerHTML = '<span class="status-dot connected"></span><span>Docker 已连接</span>';
-            } else {
-              status.innerHTML = '<span class="status-dot"></span><span>未检测到容器</span>';
-            }
-          } else {
-            tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载失败</td></tr>';
-            status.innerHTML = '<span class="status-dot error"></span><span>Docker 未运行或未安装</span>';
-          }
-        } catch (e) {
-          tbody.innerHTML = '<tr><td colspan="5" class="loading-row">无法连接 Docker</td></tr>';
-          status.innerHTML = '<span class="status-dot error"></span><span>Docker 未运行或未安装</span>';
-        }
-      }
-
-      function renderDockerContainers(containers) {
-        const tbody = document.getElementById('dockerTableBody');
-        if (!containers || containers.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" class="loading-row">暂无容器</td></tr>';
-          return;
-        }
-        
-        tbody.innerHTML = containers.map(c => {
-          const isRunning = c.state === 'running';
-          const statusClass = isRunning ? 'running' : 'stopped';
-          const statusDot = isRunning ? '🟢' : '🔴';
-          
-          return `
-            <tr class="docker-row">
-              <td class="col-status">${statusDot}</td>
-              <td class="container-name">${c.name}</td>
-              <td class="container-image">${c.image}</td>
-              <td class="container-status ${statusClass}">${c.status}</td>
-              <td class="container-ports">${c.ports || '-'}</td>
-            </tr>
-          `;
-        }).join('');
-      }
-
-      document.getElementById('refreshDockerBtn').addEventListener('click', loadDockerContainers);
-
-      // ========== 初始化 ==========
-      document.addEventListener('DOMContentLoaded', async () => {
-        await loadSettingsFromServer();
-        await loadServices();
-        await loadPresetBackgrounds();
-        
-        // 连接 WebSocket 以更新顶部栏状态
-        connectMonitorWs();
-        
-        // 首页加载完成后自动检测连通性
-        setTimeout(pingAllServices, 1000);
-        
-        // 每 30 秒自动刷新连通状态
-        pingInterval = setInterval(() => {
-          if (document.getElementById('page-home').classList.contains('active')) {
-            pingAllServices();
-          }
-        }, 30000);
-      });
-    </script>
+    
   </body>
+  <script src="/static/base.js"></script>
 </html>
