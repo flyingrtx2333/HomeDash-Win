@@ -3,7 +3,7 @@
 > 轻量级 Windows 家庭服务器看板
 
 HomeDash Win 是一个专为 Windows 家庭服务器设计的综合看板工具，提供**服务入口管理**、**实时系统监控**、**文件管理**、**Web 终端**和 **Docker 管理**等功能，让你轻松管理家庭服务器上的所有服务。
-![HomeDash 界面预览](assets/index.jpg)
+![HomeDash 界面预览](assets/index.png)
 
 
 ---
