@@ -39,10 +39,10 @@ type BackgroundInfo struct {
 
 // UserSettings 用户设置
 type UserSettings struct {
-	ServerIP        string `json:"serverIp"`
-	BackgroundURL   string `json:"backgroundUrl"`
-	Theme           string `json:"theme"`            // "dark" | "light"
-	WebdavRoot      string `json:"webdavRoot"`      // WebDAV 挂载根目录
+	ServerIP         string `json:"serverIp"`
+	BackgroundURL    string `json:"backgroundUrl"`
+	Theme            string `json:"theme"`            // "dark" | "light"
+	WebdavRoot       string `json:"webdavRoot"`       // WebDAV 挂载根目录
 	ComfyUIServerURL string `json:"comfyuiServerUrl"` // ComfyUI服务器地址
 }
 
@@ -57,7 +57,7 @@ type ServiceCard struct {
 	LaunchPath    string `json:"launchPath"`    // 启动路径（可执行文件路径，向后兼容）
 	LaunchCommand string `json:"launchCommand"` // 启动命令（支持参数）
 	ProcessName   string `json:"processName"`   // 进程名（用于检测和停止）
-	AutoStart     bool   `json:"autoStart"`      // 是否开机自启
+	AutoStart     bool   `json:"autoStart"`     // 是否开机自启
 	CreatedAt     int64  `json:"createdAt"`
 	UpdatedAt     int64  `json:"updatedAt"`
 }
@@ -1258,11 +1258,11 @@ func getDockerContainers() []DockerContainer {
 		parts := strings.SplitN(line, "|", 7)
 		if len(parts) >= 5 {
 			container := DockerContainer{
-				ID:    parts[0],
-				Name:  parts[1],
-				Image: parts[2],
+				ID:     parts[0],
+				Name:   parts[1],
+				Image:  parts[2],
 				Status: parts[3],
-				State: parts[4],
+				State:  parts[4],
 			}
 			if len(parts) >= 6 {
 				container.Ports = parts[5]
@@ -1321,7 +1321,7 @@ func getDockerImages() []DockerImage {
 
 // ========== Windows 注册表操作 ==========
 const (
-	appAutoStartKey   = `Software\Microsoft\Windows\CurrentVersion\Run`
+	appAutoStartKey  = `Software\Microsoft\Windows\CurrentVersion\Run`
 	appAutoStartName = "HomeDash-Win"
 )
 
@@ -1414,51 +1414,29 @@ func setServiceAutoStart(serviceID, launchPath string, enabled bool) error {
 	}
 }
 
-// launchService 启动服务（支持带参数的命令）
 func launchService(launchCmd string) error {
-	// 解析命令和参数
+	// 1. 使用你写的 parseCommand 解析出数组
+	// 假设 launchCmd 是 `C:\alist.exe server`
+	// parts 应该是 ["C:\alist.exe", "server"]
 	parts := parseCommand(launchCmd)
 	if len(parts) == 0 {
 		return fmt.Errorf("启动命令为空")
 	}
 
-	// 第一个部分是可执行文件路径
-	exePath := parts[0]
-	absPath, err := filepath.Abs(exePath)
+	fmt.Printf(">>>>>> 解析后的命令: %v \n", parts)
+
+	// 2. 直接执行，不要嵌套 cmd.exe /c start
+	// 第一个元素是程序名，后面的解构为参数
+	cmd := exec.Command(parts[0], parts[1:]...)
+
+	// 如果你希望在后台运行而不阻塞主程序
+	err := cmd.Start()
 	if err != nil {
-		return fmt.Errorf("获取绝对路径失败: %v", err)
+		return err
 	}
 
-	// 验证可执行文件是否存在
-	if _, err := os.Stat(absPath); os.IsNotExist(err) {
-		return fmt.Errorf("文件不存在: %s", absPath)
-	}
-
-	// Windows 上使用 start 命令启动，避免阻塞
-	if runtime.GOOS == "windows" {
-		// 如果有参数，需要将整个命令作为字符串传递给 cmd
-		if len(parts) > 1 {
-			// 构建完整命令，处理包含空格的路径
-			fullCmd := fmt.Sprintf(`"%s"`, absPath)
-			for i := 1; i < len(parts); i++ {
-				// 如果参数包含空格，用引号包裹
-				if strings.Contains(parts[i], " ") {
-					fullCmd += fmt.Sprintf(` "%s"`, parts[i])
-				} else {
-					fullCmd += " " + parts[i]
-				}
-			}
-			cmd := exec.Command("cmd.exe", "/c", "start", "", fullCmd)
-			return cmd.Run()
-		} else {
-			cmd := exec.Command("cmd.exe", "/c", "start", "", absPath)
-			return cmd.Run()
-		}
-	} else {
-		// Linux/Mac 上直接执行
-		cmd := exec.Command(absPath, parts[1:]...)
-		return cmd.Start() // 使用 Start 而不是 Run，避免阻塞
-	}
+	fmt.Printf(">>>>>> 服务已启动，PID: %d\n", cmd.Process.Pid)
+	return nil
 }
 
 // parseCommand 解析命令字符串，支持引号包裹的参数
@@ -1472,11 +1450,6 @@ func parseCommand(cmdStr string) []string {
 		if escapeNext {
 			current.WriteRune(r)
 			escapeNext = false
-			continue
-		}
-
-		if r == '\\' {
-			escapeNext = true
 			continue
 		}
 
@@ -1584,16 +1557,16 @@ func stopServiceProcess(pid int32) error {
 			return err
 		}
 		proc.Terminate()
-		
+
 		// 等待进程退出
 		time.Sleep(2 * time.Second)
-		
+
 		// 如果还在运行，强制终止
 		exists, _ := process.PidExists(pid)
 		if exists {
 			proc.Kill()
 		}
-		
+
 		return nil
 	}
 }
@@ -1703,7 +1676,7 @@ func getComfyUIWorkflowStatus(serverURL, promptId string) (map[string]interface{
 						return map[string]interface{}{
 							"completed": false,
 							"progress":  50,
-							"message":  "执行中",
+							"message":   "执行中",
 						}, nil
 					}
 				}
@@ -1720,7 +1693,7 @@ func getComfyUIWorkflowStatus(serverURL, promptId string) (map[string]interface{
 						return map[string]interface{}{
 							"completed": false,
 							"progress":  10,
-							"message":  "等待执行",
+							"message":   "等待执行",
 						}, nil
 					}
 				}
@@ -1734,7 +1707,7 @@ func getComfyUIWorkflowStatus(serverURL, promptId string) (map[string]interface{
 		return map[string]interface{}{
 			"completed": false,
 			"progress":  0,
-			"message":  "查询失败",
+			"message":   "查询失败",
 		}, nil
 	}
 	defer historyResp.Body.Close()
@@ -1743,7 +1716,7 @@ func getComfyUIWorkflowStatus(serverURL, promptId string) (map[string]interface{
 		return map[string]interface{}{
 			"completed": false,
 			"progress":  0,
-			"message":  "等待执行",
+			"message":   "等待执行",
 		}, nil
 	}
 
@@ -1752,7 +1725,7 @@ func getComfyUIWorkflowStatus(serverURL, promptId string) (map[string]interface{
 		return map[string]interface{}{
 			"completed": false,
 			"progress":  0,
-			"message":  "解析失败",
+			"message":   "解析失败",
 		}, nil
 	}
 
@@ -1762,7 +1735,7 @@ func getComfyUIWorkflowStatus(serverURL, promptId string) (map[string]interface{
 		return map[string]interface{}{
 			"completed": false,
 			"progress":  0,
-			"message":  "等待执行",
+			"message":   "等待执行",
 		}, nil
 	}
 
@@ -1814,8 +1787,8 @@ func getComfyUIWorkflowStatus(serverURL, promptId string) (map[string]interface{
 			return map[string]interface{}{
 				"completed": true,
 				"progress":  100,
-				"message":  "执行完成",
-				"images":   images,
+				"message":   "执行完成",
+				"images":    images,
 			}, nil
 		}
 	}
@@ -1823,7 +1796,7 @@ func getComfyUIWorkflowStatus(serverURL, promptId string) (map[string]interface{
 	return map[string]interface{}{
 		"completed": false,
 		"progress":  0,
-		"message":  "等待执行",
+		"message":   "等待执行",
 	}, nil
 }
 

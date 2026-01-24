@@ -7,6 +7,8 @@
     "icon": "🍀",
     "enabled": true,
     "launchPath": "",
+    "launchCommand": "",
+    "processName": "",
     "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
@@ -19,9 +21,11 @@
     "icon": "/static/images/alist.png",
     "enabled": true,
     "launchPath": "",
+    "launchCommand": "C:\\alist-windows-amd64\\alist.exe server",
+    "processName": "alist.exe",
     "autoStart": false,
     "createdAt": 1769097408289,
-    "updatedAt": 0
+    "updatedAt": 1769159683467
   },
   {
     "id": "immich",
@@ -31,6 +35,8 @@
     "icon": "/static/images/immich.png",
     "enabled": true,
     "launchPath": "",
+    "launchCommand": "",
+    "processName": "",
     "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
@@ -43,6 +49,8 @@
     "icon": "/static/images/jellyfin.jpg",
     "enabled": true,
     "launchPath": "",
+    "launchCommand": "",
+    "processName": "",
     "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
@@ -55,6 +63,8 @@
     "icon": "/static/images/comfyui.webp",
     "enabled": true,
     "launchPath": "C:\\Users\\XJS\\AppData\\Local\\Programs\\ComfyUI\\ComfyUI.exe",
+    "launchCommand": "",
+    "processName": "",
     "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 1769149844785
@@ -67,6 +77,8 @@
     "icon": "/static/images/rustdesk.png",
     "enabled": false,
     "launchPath": "",
+    "launchCommand": "",
+    "processName": "",
     "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
@@ -79,6 +91,8 @@
     "icon": "☀️",
     "enabled": false,
     "launchPath": "",
+    "launchCommand": "",
+    "processName": "",
     "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
@@ -91,6 +105,8 @@
     "icon": "🌙",
     "enabled": false,
     "launchPath": "",
+    "launchCommand": "",
+    "processName": "",
     "autoStart": false,
     "createdAt": 1769097408289,
     "updatedAt": 0
