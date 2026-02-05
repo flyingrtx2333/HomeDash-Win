@@ -6,3 +6,5 @@ go.mod
 go.sum
 *.7z
 release
+.cursorignore
+*.rar

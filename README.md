@@ -1,4 +1,4 @@
-# 🖥️ HomeDash Win V0.2.0
+# 🖥️ HomeDash Win V0.3.0
 
 > 轻量级 Windows 家庭服务器看板
 
