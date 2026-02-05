@@ -1,0 +1,34 @@
+{{define "docker.html"}}
+{{template "master.html" .}}
+{{end}}
+
+{{define "pages/docker-content"}}
+  <div class="section-header">
+    <h2>Docker 容器</h2>
+    <div class="header-actions">
+      <button class="btn-outline" id="refreshDockerBtn">🔄 刷新</button>
+    </div>
+  </div>
+  <div class="docker-status" id="dockerStatus">
+    <span class="status-dot"></span>
+    <span>检测中...</span>
+  </div>
+  <div class="docker-table-container">
+    <table class="docker-table">
+      <thead>
+        <tr>
+          <th class="col-status"></th>
+          <th>名称</th>
+          <th>镜像</th>
+          <th>状态</th>
+          <th>端口</th>
+        </tr>
+      </thead>
+      <tbody id="dockerTableBody">
+        <tr>
+          <td colspan="5" class="loading-row">加载中...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+{{end}}

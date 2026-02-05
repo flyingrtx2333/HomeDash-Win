@@ -1,0 +1,28 @@
+{{define "process.html"}}
+{{template "master.html" .}}
+{{end}}
+
+{{define "pages/process-content"}}
+<div class="section-header">
+  <h2>进程管理</h2>
+  <button class="btn-outline" id="refreshProcessBtn">🔄 刷新</button>
+</div>
+<div class="process-table-container">
+  <table class="process-table">
+    <thead>
+      <tr>
+        <th>PID</th>
+        <th>进程名</th>
+        <th>CPU %</th>
+        <th>内存</th>
+        <th>状态</th>
+      </tr>
+    </thead>
+    <tbody id="processTableBody">
+      <tr>
+        <td colspan="5" class="loading-row">加载中...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{{end}}

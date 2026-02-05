@@ -44,6 +44,9 @@ HomeDash Win 是一个专为 Windows 家庭服务器设计的综合看板工具�
 ---
 
 ## 🚀 快速开始
+
+在release中下载最新版本exe直接运行即可
+
 ```powershell
 # 克隆项目
 git clone https://github.com/flyingrtx2333/HomeDash-Win.git
@@ -109,7 +112,7 @@ $env:PORT="8080"; ./homedash.exe
 ```json
 {
   "serverIp": "192.168.1.100",
-  "backgroundUrl": "/static/backgrounds/default.jpg",
+  "backgroundUrl": "/static/backgrounds/mountain.jpg",
   "theme": "dark",
   "webdavRoot": "C:\\Users\\Public"
 }
@@ -153,13 +156,6 @@ WebDAV 访问地址：`http://localhost:29678/webdav/`
    - 右键「此电脑」→「添加网络位置」
    - 输入 WebDAV 地址
    - 完成挂载
-
-### SSH 终端快捷键
-
-- `Enter` - 执行命令
-- `↑/↓` - 浏览命令历史
-- `Ctrl+L` - 清屏
-- `Ctrl+C` - 中断当前命令
 
 ### 主题切换
 
@@ -216,6 +212,7 @@ WebDAV 访问地址：`http://localhost:29678/webdav/`
 ## TODO
  - 下载功能
  - 日志功能
+ - github.com/docker/docker/client
  
 
 ## 📜 许可证

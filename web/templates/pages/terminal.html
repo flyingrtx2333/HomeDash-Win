@@ -1,0 +1,36 @@
+{{define "terminal.html"}}
+{{template "master.html" .}}
+{{end}}
+
+{{define "pages/terminal-content"}}
+  <div class="section-header">
+    <h2>SSH 终端</h2>
+    <div class="header-actions">
+      <span class="terminal-status" id="terminalStatus">
+        <span class="status-dot"></span>
+        <span>未连接</span>
+      </span>
+      <button class="btn-outline" id="connectTerminalBtn">🔌 重连</button>
+      <button class="btn-outline" id="clearTerminalBtn">🗑️ 清屏</button>
+    </div>
+  </div>
+  <div class="terminal-container" id="terminalContainer">
+    <div class="terminal-header">
+      <div class="terminal-dots">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+      </div>
+      <div class="terminal-title">
+        <span>PowerShell</span>
+      </div>
+    </div>
+    <div class="terminal-wrapper" id="terminal" tabindex="0">
+      <div class="terminal-output" id="terminalOutput"></div>
+      <div class="terminal-input-line">
+        <span class="terminal-prompt" id="terminalPrompt">PS&gt;</span>
+        <input type="text" class="terminal-input" id="terminalInput" autofocus />
+      </div>
+    </div>
+  </div>
+{{end}}

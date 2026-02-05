@@ -1,0 +1,106 @@
+{{define "monitor.html"}}
+{{template "master.html" .}}
+{{end}}
+
+{{define "pages/monitor-content"}}
+  <div class="connection-status">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">正在连接...</span>
+  </div>
+
+  <div class="monitor-grid">
+    <!-- CPU -->
+    <div class="monitor-card">
+      <h3>CPU 使用率</h3>
+      <div class="progress-ring">
+        <svg>
+          <circle class="progress-ring-bg" cx="70" cy="70" r="60"></circle>
+          <circle class="progress-ring-fill cpu" id="cpuRing" cx="70" cy="70" r="60"></circle>
+        </svg>
+        <div class="progress-value"><span id="cpuValue">0</span><span>%</span></div>
+      </div>
+      <div class="monitor-info">
+        <span class="label" id="cpuModel">-</span>
+        <span class="value" id="cpuCores">- 核心</span>
+      </div>
+      <div class="temp-badge" id="cpuTemp" style="display: none;">
+        <span class="temp-icon">🌡️</span>
+        <span class="temp-value">--</span>°C
+      </div>
+    </div>
+
+    <!-- 内存 -->
+    <div class="monitor-card">
+      <h3>内存使用率</h3>
+      <div class="progress-ring">
+        <svg>
+          <circle class="progress-ring-bg" cx="70" cy="70" r="60"></circle>
+          <circle class="progress-ring-fill memory" id="memoryRing" cx="70" cy="70" r="60"></circle>
+        </svg>
+        <div class="progress-value"><span id="memoryValue">0</span><span>%</span></div>
+      </div>
+      <div class="monitor-info">
+        <span class="label" id="memoryUsed">0 GB / 0 GB</span>
+        <span class="value" id="memoryAvailable">可用: 0 GB</span>
+      </div>
+    </div>
+
+    <!-- GPU -->
+    <div class="monitor-card">
+      <h3>GPU 使用率</h3>
+      <div id="gpuContent">
+        <div class="progress-ring">
+          <svg>
+            <circle class="progress-ring-bg" cx="70" cy="70" r="60"></circle>
+            <circle class="progress-ring-fill gpu" id="gpuRing" cx="70" cy="70" r="60"></circle>
+          </svg>
+          <div class="progress-value"><span id="gpuValue">0</span><span>%</span></div>
+        </div>
+        <div class="monitor-info">
+          <span class="label" id="gpuModel">-</span>
+          <span class="value" id="gpuMemory">显存: 0 / 0 MB</span>
+        </div>
+        <div class="temp-badge" id="gpuTemp">
+          <span class="temp-icon">🌡️</span>
+          <span class="temp-value">--</span>°C
+        </div>
+      </div>
+      <div id="gpuUnavailable" class="gpu-unavailable" style="display: none;">
+        GPU 不可用或未检测到
+      </div>
+    </div>
+
+    <!-- 网络流量 -->
+    <div class="monitor-card network-card">
+      <h3>网络流量</h3>
+      <div class="network-stats">
+        <div class="network-speed">
+          <div class="speed-item upload">
+            <span class="speed-icon">↑</span>
+            <span class="speed-value" id="netSpeedUp">0 B/s</span>
+          </div>
+          <div class="speed-item download">
+            <span class="speed-icon">↓</span>
+            <span class="speed-value" id="netSpeedDown">0 B/s</span>
+          </div>
+        </div>
+        <div class="network-total">
+          <div class="total-item">
+            <span class="total-label">累计上传</span>
+            <span class="total-value" id="netTotalUp">0 B</span>
+          </div>
+          <div class="total-item">
+            <span class="total-label">累计下载</span>
+            <span class="total-value" id="netTotalDown">0 B</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 磁盘使用 -->
+  <div class="disk-section">
+    <h3>磁盘使用</h3>
+    <div id="diskList"></div>
+  </div>
+{{end}}

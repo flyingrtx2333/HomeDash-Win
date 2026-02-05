@@ -1,0 +1,49 @@
+{{define "webdav.html"}}
+{{template "master.html" .}}
+{{end}}
+
+{{define "pages/webdav-content"}}
+  <div class="section-header">
+    <h2>文件管理</h2>
+    <div class="header-actions">
+      <button class="btn-outline" id="newFolderBtn">📁 新建文件夹</button>
+      <button class="btn-outline" id="uploadFileBtn">📤 上传文件</button>
+      <input type="file" id="fileUploadInput" hidden multiple />
+    </div>
+  </div>
+  <!-- WebDAV 挂载目录设置 -->
+  <div class="webdav-settings">
+    <label>📂 挂载目录：</label>
+    <input type="text" id="webdavRootInput" placeholder="例如: C:\Users\Public" />
+    <button class="btn-outline" id="setWebdavRootBtn">应用</button>
+  </div>
+  <!-- 面包屑导航 -->
+  <div class="breadcrumb" id="breadcrumb">
+    <span class="breadcrumb-item" data-path="/">🏠 根目录</span>
+  </div>
+  <!-- WebDAV 信息 -->
+  <div class="webdav-info">
+    <span>📡 WebDAV 地址：</span>
+    <code id="webdavUrl">-</code>
+    <button class="btn-copy" id="copyWebdavBtn" title="复制地址">📋</button>
+  </div>
+  <!-- 文件列表 -->
+  <div class="file-list-container">
+    <table class="file-table">
+      <thead>
+        <tr>
+          <th class="col-icon"></th>
+          <th class="col-name">名称</th>
+          <th class="col-size">大小</th>
+          <th class="col-time">修改时间</th>
+          <th class="col-actions">操作</th>
+        </tr>
+      </thead>
+      <tbody id="fileTableBody">
+        <tr>
+          <td colspan="5" class="loading-row">加载中...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+{{end}}

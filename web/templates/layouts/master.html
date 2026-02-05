@@ -1,0 +1,238 @@
+{{define "master.html"}}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HomeDash Win</title>
+  <link rel="icon" type="image/png" href="/static/images/logo16.png" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- 背景层 -->
+  <div class="bg-layer" id="bgLayer"></div>
+  <div class="bg-overlay"></div>
+
+  <div class="app-container">
+    {{template "partials/navbar" .}}
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+      <!-- 顶部栏 -->
+      <header class="top-bar">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <div class="ip-input-container">
+          <label for="serverIp">服务器：</label>
+          <input 
+            type="text" 
+            id="serverIp" 
+            placeholder="例如: 192.168.1.100" 
+            value="localhost"
+          />
+        </div>
+        <!-- 状态小图标 -->
+        <div class="top-bar-stats" id="topBarStats">
+          <div class="stat-mini" title="网页延迟">
+            <img class="stat-icon" src="/static/images/internet.png" alt="延迟" />
+            <span class="stat-value" id="topWebPing">--ms</span>
+          </div>
+          <div class="stat-mini" title="CPU">
+            <img class="stat-icon" src="/static/images/cpu.png" alt="CPU" />
+            <span class="stat-value" id="topCpu">--%</span>
+          </div>
+          <div class="stat-mini" title="内存">
+            <img class="stat-icon" src="/static/images/memory.png" alt="内存" />
+            <span class="stat-value" id="topMem">--%</span>
+          </div>
+          <div class="stat-mini" title="GPU">
+            <img class="stat-icon" src="/static/images/gpu.png" alt="GPU" />
+            <span class="stat-value" id="topGpu">--%</span>
+          </div>
+          <div class="stat-mini stat-network" title="网络">
+            <img class="stat-icon" src="/static/images/cloud.png" alt="网络" />
+            <span class="stat-value">
+              <span class="net-up">↑<span id="topNetUp">--</span></span>
+              <span class="net-down">↓<span id="topNetDown">--</span></span>
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <!-- 页面内容 -->
+      <div class="page-content">
+        {{block "content" .}}
+        <!-- 默认内容：所有页面视图 -->
+        {{template "pages/all" .}}
+        {{end}}
+      </div>
+
+      {{template "partials/footer" .}}
+    </main>
+  </div>
+
+  <!-- Toast 容器 -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- 设置按钮 -->
+  <button class="settings-btn" id="settingsBtn" title="设置背景">👕</button>
+
+  <!-- 设置面板 -->
+  <div class="settings-panel" id="settingsPanel">
+    <h3>设置</h3>
+    <div class="settings-section">
+      <label>主题模式</label>
+      <div class="theme-toggle">
+        <span>🌙</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="themeToggle" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span>☀️</span>
+      </div>
+    </div>
+    <div class="settings-section">
+      <label>选择预设背景</label>
+      <div class="bg-grid" id="bgGrid"></div>
+    </div>
+  </div>
+
+  <!-- 服务编辑弹窗 -->
+  <div class="modal-overlay" id="serviceModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">添加服务</h3>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <form id="serviceForm" class="service-form-two-column">
+        <!-- 左列 -->
+        <div class="form-column-left">
+          <div class="form-group">
+            <label for="serviceName">服务名称 *</label>
+            <input type="text" id="serviceName" required placeholder="例如: Alist" />
+          </div>
+          <div class="form-group">
+            <label for="serviceDesc">描述</label>
+            <input type="text" id="serviceDesc" placeholder="例如: 多网盘整合" />
+          </div>
+          <div class="form-group">
+            <label for="servicePort">端口号</label>
+            <div class="port-input-group">
+              <input type="number" id="servicePort" placeholder="例如: 5244 (留空表示本地应用)" />
+              <button type="button" class="btn-fetch-icon" id="fetchFaviconBtn" title="自动获取图标">🔍 获取图标</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>图标</label>
+            <!-- 图标上传区域 -->
+            <div class="icon-upload-zone" id="iconUploadZone">
+              <div class="upload-preview" id="uploadPreview"></div>
+              <div class="upload-hint" id="uploadHint">
+                <span class="upload-icon">📤</span>
+                <p>拖拽图片到此处或点击上传</p>
+                <span class="upload-tip">支持 PNG, JPG, GIF, WebP, ICO (最大 2MB)</span>
+              </div>
+              <input type="file" id="iconFileInput" accept="image/*" hidden />
+            </div>
+            <!-- Emoji 快捷选择 -->
+            <div class="icon-selector" id="iconSelector">
+              <div class="icon-option" data-icon="🌐">🌐</div>
+              <div class="icon-option" data-icon="📁">📁</div>
+              <div class="icon-option" data-icon="🎬">🎬</div>
+              <div class="icon-option" data-icon="📷">📷</div>
+              <div class="icon-option" data-icon="🎮">🎮</div>
+              <div class="icon-option" data-icon="💾">💾</div>
+              <div class="icon-option" data-icon="🔧">🔧</div>
+              <div class="icon-option" data-icon="🍀">🍀</div>
+              <div class="icon-option" data-icon="☀️">☀️</div>
+              <div class="icon-option" data-icon="🌙">🌙</div>
+              <div class="icon-option" data-icon="🖥️">🖥️</div>
+              <div class="icon-option" data-icon="🤖">🤖</div>
+            </div>
+            <div class="form-group" style="margin-top: 10px;">
+              <input type="text" id="serviceIcon" placeholder="或输入图片路径: /static/images/xxx.png" />
+            </div>
+          </div>
+        </div>
+        <!-- 右列 -->
+        <div class="form-column-right">
+          <div class="form-group">
+            <label>高级选项（启动配置）</label>
+            <div class="advanced-options" id="advancedOptions">
+              <div class="form-group" style="margin-top: 12px;">
+                <label for="serviceLaunchCommand">启动命令</label>
+                <textarea id="serviceLaunchCommand" rows="3" placeholder='例如: C:\Program Files\Alist\alist.exe server --data "C:\Alist"'></textarea>
+                <small class="form-hint">支持多行命令和参数，完整启动命令（包含可执行文件路径和所有参数）</small>
+              </div>
+              <div class="form-group">
+                <label for="serviceProcessName">进程名 *</label>
+                <input type="text" id="serviceProcessName" placeholder="例如: alist.exe" />
+                <small class="form-hint">用于进程检测和停止，必须填写（例如：alist.exe）</small>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="serviceAutoStart" />
+              <span>开机自启</span>
+            </label>
+            <small class="form-hint">启用后，系统启动时会自动运行该服务（需要先配置启动命令）</small>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="cancelBtn">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 删除确认弹窗 -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal modal-small">
+      <div class="modal-header">
+        <h3>确认删除</h3>
+      </div>
+      <p class="modal-body">确定要删除服务「<span id="deleteServiceName"></span>」吗？</p>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" id="cancelDeleteBtn">取消</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteBtn">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新建文件夹弹窗 -->
+  <div class="modal-overlay" id="newFolderModal">
+    <div class="modal modal-small">
+      <div class="modal-header">
+        <h3>新建文件夹</h3>
+        <button class="modal-close" id="closeFolderModal">&times;</button>
+      </div>
+      <div class="form-group">
+        <label for="folderName">文件夹名称</label>
+        <input type="text" id="folderName" placeholder="输入文件夹名称" />
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" id="cancelFolderBtn">取消</button>
+        <button type="button" class="btn btn-primary" id="confirmFolderBtn">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 删除文件确认弹窗 -->
+  <div class="modal-overlay" id="deleteFileModal">
+    <div class="modal modal-small">
+      <div class="modal-header">
+        <h3>确认删除</h3>
+      </div>
+      <p class="modal-body">确定要删除「<span id="deleteFileName"></span>」吗？此操作不可恢复。</p>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" id="cancelDeleteFileBtn">取消</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteFileBtn">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/base.js"></script>
+</body>
+</html>
+{{end}}

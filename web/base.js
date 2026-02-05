@@ -879,7 +879,7 @@ function updateTopBarStats(stats) {
 async function measureWebPing() {
     try {
         const start = performance.now();
-        await fetch('/api/settings', { method: 'GET', cache: 'no-cache' });
+        await fetch('/api/ping', { method: 'GET', cache: 'no-cache' });
         const end = performance.now();
         const latency = Math.round(end - start);
         document.getElementById('topWebPing').textContent = latency + 'ms';

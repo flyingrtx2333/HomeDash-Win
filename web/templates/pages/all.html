@@ -1,0 +1,41 @@
+{{define "pages/all"}}
+<!-- 首页 -->
+<div class="page-view active" id="page-home">
+  {{template "pages/home-content" .}}
+</div>
+
+<!-- 监控页面 -->
+<div class="page-view" id="page-monitor">
+  {{template "pages/monitor-content" .}}
+</div>
+
+<!-- 进程管理页面 -->
+<div class="page-view" id="page-process">
+  {{template "pages/process-content" .}}
+</div>
+
+<!-- 文件管理页面 -->
+<div class="page-view" id="page-files">
+  {{template "pages/webdav-content" .}}
+</div>
+
+<!-- SSH 终端页面 -->
+<div class="page-view" id="page-ssh">
+  {{template "pages/terminal-content" .}}
+</div>
+
+<!-- Docker 管理页面 -->
+<div class="page-view" id="page-docker">
+  {{template "pages/docker-content" .}}
+</div>
+
+<!-- AI绘画页面 -->
+<div class="page-view" id="page-ai">
+  {{template "pages/comfyui-content" .}}
+</div>
+
+<!-- 设置页面 -->
+<div class="page-view" id="page-settings">
+  {{template "pages/settings-content" .}}
+</div>
+{{end}}

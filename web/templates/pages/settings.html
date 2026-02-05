@@ -1,0 +1,46 @@
+{{define "settings.html"}}
+{{template "master.html" .}}
+{{end}}
+
+{{define "pages/settings-content"}}
+  <div class="section-header">
+    <h2>应用设置</h2>
+  </div>
+
+  <!-- 应用端口设置 -->
+  <div class="settings-card">
+    <h3>应用端口</h3>
+    <p class="settings-desc">修改端口后需要重启应用才能生效</p>
+    <div class="settings-input-group">
+      <label>端口号：</label>
+      <input type="text" id="appPortInput" placeholder="例如: 29678" />
+      <button class="btn-outline" id="savePortBtn">保存</button>
+    </div>
+    <div class="settings-status">
+      <span>当前运行端口：<strong id="currentPort">-</strong></span>
+    </div>
+  </div>
+
+  <!-- 应用开机自启设置 -->
+  <div class="settings-card">
+    <h3>开机自启</h3>
+    <p class="settings-desc">设置应用是否在系统启动时自动运行</p>
+    <div class="settings-toggle-group">
+      <label>启用开机自启</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="appAutoStartToggle" />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="settings-status">
+      <span>当前状态：<strong id="appAutoStartStatus">-</strong></span>
+    </div>
+  </div>
+
+  <!-- 应用重启 -->
+  <div class="settings-card">
+    <h3>重启面板</h3>
+    <p class="settings-desc">重启应用以应用配置更改</p>
+    <button class="btn-outline" id="restartAppBtn">🔄 重启面板</button>
+  </div>
+{{end}}

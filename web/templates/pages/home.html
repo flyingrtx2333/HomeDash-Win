@@ -1,0 +1,25 @@
+{{define "home.html"}}
+{{template "master.html" .}}
+{{end}}
+
+{{define "pages/home-content"}}
+<section class="section">
+  <div class="section-header">
+    <h2>服务入口</h2>
+    <div class="header-actions">
+      <button class="btn-outline" id="pingAllBtn" title="检测所有服务连通性">🔍 检测连通</button>
+      <button class="btn-outline" id="importTemplateBtn" title="导入推荐服务模板">📥 导入模板</button>
+      <button class="add-service-btn" id="addServiceBtn">+ 添加服务</button>
+    </div>
+  </div>
+  <div class="grid" id="servicesGrid">
+    <!-- 服务卡片将由 JS 动态生成 -->
+  </div>
+  <!-- 空状态提示 -->
+  <div class="empty-state" id="emptyState" style="display: none;">
+    <div class="empty-icon">📦</div>
+    <p>还没有添加任何服务</p>
+    <button class="btn btn-primary" id="emptyImportBtn">导入推荐模板</button>
+  </div>
+</section>
+{{end}}

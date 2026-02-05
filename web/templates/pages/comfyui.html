@@ -1,0 +1,82 @@
+{{define "comfyui.html"}}
+{{template "master.html" .}}
+{{end}}
+
+{{define "pages/comfyui-content"}}
+  <div class="section-header">
+    <div style="flex: 1;">
+      <h2>AI绘画</h2>
+      <div id="workflowProgressHeader" style="display: none; margin-top: 12px;">
+        <div class="progress-bar" style="width: 100%; height: 10px; margin-bottom: 6px;">
+          <div class="progress-fill" id="workflowProgressFillHeader"></div>
+        </div>
+        <span id="workflowProgressTextHeader" style="font-size: 13px; color: var(--text-secondary);">等待执行...</span>
+      </div>
+    </div>
+    <div class="ai-header-actions">
+      <span class="comfyui-url-display" id="currentComfyUIUrlDisplay" title="ComfyUI服务器地址">-</span>
+      <button class="btn-outline" id="aiConfigBtn" title="配置ComfyUI">⚙️</button>
+      <button class="btn-outline" id="testComfyUIConnectionBtn" title="测试连接">🔗</button>
+    </div>
+  </div>
+
+  <!-- 工作流卡片列表 -->
+  <div class="section-header">
+    <h3>工作流</h3>
+  </div>
+  <div class="workflow-grid" id="workflowGrid">
+    <!-- 工作流卡片将由 JS 动态生成 -->
+  </div>
+
+  <!-- ComfyUI配置弹窗 -->
+  <div class="workflow-popup" id="comfyuiConfigModal" style="width: 360px;">
+    <div class="workflow-popup-content">
+      <div class="modal-header">
+        <h3>ComfyUI配置</h3>
+        <button class="modal-close" id="closeComfyUIConfigModal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>服务器地址</label>
+          <input type="text" class="form-control" id="comfyuiServerUrl" placeholder="例如: http://localhost:8188" />
+          <small class="form-hint">配置ComfyUI服务器地址</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="cancelComfyUIConfigBtn">取消</button>
+        <button class="btn-outline" id="saveComfyUIConfigBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 工作流执行面板（弹窗） -->
+  <div class="workflow-popup" id="workflowExecuteModal">
+    <div class="workflow-popup-content">
+      <div class="modal-header">
+        <h3 id="workflowExecuteTitle">执行工作流</h3>
+        <button class="modal-close" id="closeWorkflowExecuteModal">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="workflowParamsForm">
+          <!-- 参数表单将由 JS 动态生成 -->
+        </div>
+        <div id="workflowProgress" style="display: none; margin-top: 20px;">
+          <div class="progress-bar">
+            <div class="progress-fill" id="workflowProgressFill"></div>
+          </div>
+          <p id="workflowProgressText">正在执行...</p>
+        </div>
+        <div id="workflowResult" style="display: none; margin-top: 20px;">
+          <h4>生成结果</h4>
+          <div id="workflowResultImages" class="workflow-result-images">
+            <!-- 结果图片将由 JS 动态生成 -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="cancelWorkflowExecuteBtn">取消</button>
+        <button class="btn-outline" id="executeWorkflowBtn">执行</button>
+      </div>
+    </div>
+  </div>
+{{end}}
