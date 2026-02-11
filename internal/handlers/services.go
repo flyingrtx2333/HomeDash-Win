@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 // 推荐服务模板
 var defaultServiceTemplates = []ServiceCard{
+	{ID: "openclaw", Name: "OpenClaw", Description: "AI智能助手与自动化网关", Port: 18789, Icon: "🦞", Enabled: true},
 	{ID: "lucky", Name: "Lucky", Description: "DDNS、反向代理、证书自动化", Port: 16601, Icon: "🍀", Enabled: true},
 	{ID: "alist", Name: "Alist", Description: "多网盘整合与 WebDAV", Port: 5244, Icon: "/static/images/alist.png", Enabled: true},
 	{ID: "immich", Name: "Immich", Description: "相册备份与 AI 检索", Port: 2283, Icon: "/static/images/immich.png", Enabled: true},
@@ -30,6 +32,7 @@ func InitDefaultServices() {
 	}
 
 	defaultServices := []ServiceCard{
+		{ID: "openclaw", Name: "OpenClaw", Description: "AI智能助手与自动化网关", Port: 18789, Icon: "🦞", Enabled: true, CreatedAt: time.Now().UnixMilli()},
 		{ID: "lucky", Name: "Lucky", Description: "DDNS、反向代理、证书自动化", Port: 16601, Icon: "🍀", Enabled: true, CreatedAt: time.Now().UnixMilli()},
 		{ID: "alist", Name: "Alist", Description: "多网盘整合与 WebDAV", Port: 5244, Icon: "/static/images/alist.png", Enabled: true, CreatedAt: time.Now().UnixMilli()},
 		{ID: "immich", Name: "Immich", Description: "相册备份与 AI 检索", Port: 2283, Icon: "/static/images/immich.png", Enabled: true, CreatedAt: time.Now().UnixMilli()},
@@ -57,6 +60,12 @@ func CreateService(c *gin.Context) {
 		return
 	}
 
+	// 验证配置
+	if err := ValidateServiceConfig(&service); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
 	// 生成 ID 和时间戳
 	service.ID = uuid.New().String()[:8]
 	service.CreatedAt = time.Now().UnixMilli()
@@ -80,6 +89,12 @@ func UpdateService(c *gin.Context) {
 	var updated ServiceCard
 	if err := c.ShouldBindJSON(&updated); err != nil {
 		c.JSON(400, gin.H{"error": "无效的请求数据"})
+		return
+	}
+
+	// 验证配置
+	if err := ValidateServiceConfig(&updated); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -180,6 +195,13 @@ func PingAllServices(c *gin.Context) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
+	// 添加超时控制
+	type pingResultWrapper struct {
+		result PingResult
+		service ServiceCard
+	}
+	resultChan := make(chan pingResultWrapper, len(services))
+
 	for _, s := range services {
 		if !s.Enabled || s.Port == 0 {
 			continue
@@ -188,14 +210,38 @@ func PingAllServices(c *gin.Context) {
 		go func(service ServiceCard) {
 			defer wg.Done()
 			result := pingService(service.ID, serverIP, service.Port)
-			mu.Lock()
-			results = append(results, result)
-			mu.Unlock()
+			resultChan <- pingResultWrapper{result: result, service: service}
 		}(s)
 	}
 
-	wg.Wait()
-	c.JSON(200, results)
+	// 等待所有 goroutine 完成
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// 按原始顺序收集结果
+	serviceMap := make(map[string]int)
+	for i, s := range services {
+		serviceMap[s.ID] = i
+	}
+
+	results = make([]PingResult, len(services))
+	for wrapper := range resultChan {
+		if idx, ok := serviceMap[wrapper.service.ID]; ok {
+			results[idx] = wrapper.result
+		}
+	}
+
+	// 过滤未启用的服务
+	var filteredResults []PingResult
+	for _, r := range results {
+		if r.ID != "" {
+			filteredResults = append(filteredResults, r)
+		}
+	}
+
+	c.JSON(200, filteredResults)
 }
 
 // PingService 检测单个服务连通性
@@ -235,27 +281,36 @@ func PingService(c *gin.Context) {
 	c.JSON(200, result)
 }
 
-// pingService 检测服务连通性
+// pingService 检测服务连通性（带超时控制）
 func pingService(id, host string, port int) PingResult {
 	result := PingResult{
 		ID:     id,
 		Status: "error",
 	}
 
+	// 使用带超时的 context
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
 	addr := fmt.Sprintf("%s:%d", host, port)
 	start := time.Now()
 
-	// 尝试 TCP 连接
-	conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
+	// 创建带超时的连接
+	dialer := &net.Dialer{}
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	latency := time.Since(start).Milliseconds()
 	result.Latency = latency
 
 	if err != nil {
 		result.Status = "error"
-		result.Message = err.Error()
+		if ctx.Err() == context.DeadlineExceeded {
+			result.Message = "连接超时"
+		} else {
+			result.Message = err.Error()
+		}
 		return result
 	}
-	conn.Close()
+	defer conn.Close()
 
 	// 根据延迟判断状态
 	if latency < 200 {
@@ -264,6 +319,7 @@ func pingService(id, host string, port int) PingResult {
 		result.Status = "slow"
 	} else {
 		result.Status = "error"
+		result.Message = "延迟过高"
 	}
 
 	return result

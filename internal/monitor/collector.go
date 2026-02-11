@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -88,6 +89,8 @@ type Collector struct {
 	cpuCores      int
 	lastNetStats  net.IOCountersStat
 	lastNetTime   time.Time
+	cpuInfoCache  cpu.InfoStat // CPU 信息缓存（不变，无需重复获取）
+	cpuInfoCached bool
 }
 
 // NewCollector 创建采集器
@@ -104,9 +107,11 @@ func (c *Collector) initCPUInfo() {
 	if err == nil && len(infos) > 0 {
 		c.cpuModelName = infos[0].ModelName
 		c.cpuCores = int(infos[0].Cores)
+		c.cpuInfoCache = infos[0]
+		c.cpuInfoCached = true
 	}
-	
-	// 获取逻辑核心数
+
+	// 获取逻辑核心数（更准确）
 	counts, err := cpu.Counts(true)
 	if err == nil {
 		c.cpuCores = counts
@@ -395,13 +400,16 @@ func GetTopProcesses(limit int) []ProcessInfo {
 // GetCPUTemperature 获取 CPU 温度（Windows 需要管理员权限或特定工具）
 func GetCPUTemperature() float64 {
 	// Windows 上获取 CPU 温度比较复杂，需要 WMI 或 Open Hardware Monitor
-	// 这里使用 PowerShell 尝试获取
-	cmd := exec.Command("powershell", "-Command",
-		`Get-WmiObject MSAcpi_ThermalZoneTemperature -Namespace "root/wmi" 2>$null | Select-Object -First 1 -ExpandProperty CurrentTemperature`)
-	
+	// 使用 PowerShell 尝试获取（带超时控制）
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "powershell", "-Command",
+		`Get-WmiObject MSAcpi_ThermalZoneTemperature -Namespace "root/wmi" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty CurrentTemperature`)
+
 	output, err := cmd.Output()
-	if err != nil {
-		return 0
+	if err != nil || ctx.Err() == context.DeadlineExceeded {
+		return 0 // 获取失败或超时
 	}
 
 	tempStr := strings.TrimSpace(string(output))

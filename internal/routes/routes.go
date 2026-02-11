@@ -111,6 +111,14 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 		api.GET("/comfyui/workflow/status/:id", handlers.GetComfyUIWorkflowStatus)
 	}
 
+	// ========== 日志查看器 ==========
+	{
+		api.GET("/logs", handlers.GetLogs)
+		api.GET("/logs/services", handlers.GetLogServices)
+		api.GET("/logs/stream", handlers.StreamLogs)
+		api.POST("/logs/:service/clear", handlers.ClearLogs)
+	}
+
 	// ========== 程序设置 ==========
 	{
 		// 背景图

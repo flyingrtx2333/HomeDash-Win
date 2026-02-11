@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -68,10 +69,18 @@ func UpdateSettings(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "无效的请求数据"})
 		return
 	}
+
+	// 验证设置
+	if err := ValidateUserSettings(&settings); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
 	// 如果设置了新的 WebDAV 根目录，更新全局变量
 	if settings.WebdavRoot != "" {
 		webdavRoot = settings.WebdavRoot
 	}
+
 	if err := saveSettings(settings); err != nil {
 		c.JSON(500, gin.H{"error": "保存设置失败"})
 		return
@@ -224,7 +233,7 @@ func GetFavicon(c *gin.Context) {
 	c.JSON(200, gin.H{"success": true, "icon": savedPath})
 }
 
-// UploadIcon 上传图标
+// UploadIcon 上传图标（增强安全性）
 func UploadIcon(c *gin.Context) {
 	file, err := c.FormFile("icon")
 	if err != nil {
@@ -246,6 +255,46 @@ func UploadIcon(c *gin.Context) {
 		return
 	}
 
+	// 验证文件内容（防止伪造扩展名）
+	fileHeader, err := file.Open()
+	if err != nil {
+		c.JSON(500, gin.H{"error": "打开文件失败"})
+		return
+	}
+	defer fileHeader.Close()
+
+	// 读取文件头进行验证
+	buffer := make([]byte, 512)
+	_, err = fileHeader.Read(buffer)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "读取文件失败"})
+		return
+	}
+
+	// 验证文件内容类型
+	contentType := http.DetectContentType(buffer)
+	validTypes := map[string]bool{
+		"image/png":      true,
+		"image/jpeg":     true,
+		"image/gif":      true,
+		"image/webp":     true,
+		"image/x-icon":   true,
+		"image/svg+xml":  true,
+		"application/octet-stream": true, // 某些 .ico 文件可能被识别为此类型
+	}
+
+	if !validTypes[contentType] {
+		c.JSON(400, gin.H{"error": "文件内容类型不匹配"})
+		return
+	}
+
+	// 验证文件名，防止路径遍历攻击
+	filename := file.Filename
+	if strings.ContainsAny(filename, "/\\:*?\"<>|") {
+		c.JSON(400, gin.H{"error": "文件名包含非法字符"})
+		return
+	}
+
 	// 创建 icons 目录
 	iconsDir := filepath.Join(webDir, "icons")
 	if err := os.MkdirAll(iconsDir, 0755); err != nil {
@@ -253,10 +302,11 @@ func UploadIcon(c *gin.Context) {
 		return
 	}
 
-	// 生成唯一文件名
-	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+	// 生成唯一文件名（使用 UUID 避免冲突）
+	filename = fmt.Sprintf("%s%s", uuid.New().String()[:8], ext)
 	savePath := filepath.Join(iconsDir, filename)
 
+	// 使用安全的保存方法
 	if err := c.SaveUploadedFile(file, savePath); err != nil {
 		c.JSON(500, gin.H{"error": "保存文件失败"})
 		return

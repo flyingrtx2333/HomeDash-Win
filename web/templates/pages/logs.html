@@ -1,0 +1,406 @@
+{{define "logs"}}
+<div class="page-container">
+  <div class="page-header">
+    <h1 class="page-title">📋 日志查看器</h1>
+    <p class="page-subtitle">查看各服务的运行日志</p>
+  </div>
+
+  <div class="logs-container">
+    <!-- 日志筛选 -->
+    <div class="logs-filter card">
+      <div class="filter-row">
+        <div class="filter-group">
+          <label>服务</label>
+          <select id="logService" class="form-select">
+            <option value="">全部服务</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>级别</label>
+          <select id="logLevel" class="form-select">
+            <option value="">全部</option>
+            <option value="DEBUG">DEBUG</option>
+            <option value="INFO">INFO</option>
+            <option value="WARN">WARN</option>
+            <option value="ERROR">ERROR</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>数量</label>
+          <select id="logLimit" class="form-select">
+            <option value="50">50条</option>
+            <option value="100" selected>100条</option>
+            <option value="200">200条</option>
+            <option value="500">500条</option>
+          </select>
+        </div>
+        <div class="filter-actions">
+          <button class="btn btn-primary" onclick="loadLogs()">
+            <span class="btn-icon">🔄</span>刷新
+          </button>
+          <button class="btn btn-secondary" onclick="autoRefresh()">
+            <span class="btn-icon">▶️</span>自动刷新
+          </button>
+          <button class="btn btn-danger" onclick="clearLogs()">
+            <span class="btn-icon">🗑️</span>清空
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 日志统计 -->
+    <div class="logs-stats">
+      <div class="stat-card">
+        <div class="stat-value" id="totalLogs">0</div>
+        <div class="stat-label">总日志数</div>
+      </div>
+      <div class="stat-card stat-error">
+        <div class="stat-value" id="errorLogs">0</div>
+        <div class="stat-label">错误数</div>
+      </div>
+      <div class="stat-card stat-warn">
+        <div class="stat-value" id="warnLogs">0</div>
+        <div class="stat-label">警告数</div>
+      </div>
+    </div>
+
+    <!-- 日志表格 -->
+    <div class="logs-table-container card">
+      <table class="logs-table">
+        <thead>
+          <tr>
+            <th style="width: 160px;">时间</th>
+            <th style="width: 80px;">级别</th>
+            <th style="width: 120px;">来源</th>
+            <th>消息</th>
+          </tr>
+        </thead>
+        <tbody id="logsTableBody">
+          <tr>
+            <td colspan="4" class="empty-state">
+              <div class="empty-icon">📭</div>
+              <div class="empty-text">选择服务后查看日志</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+.logs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.logs-filter {
+  padding: 16px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-group label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.form-select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  min-width: 140px;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.logs-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  border: 1px solid var(--border-color);
+}
+
+.stat-card.stat-error {
+  border-color: var(--danger-color);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.stat-card.stat-warn {
+  border-color: var(--warning-color);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.logs-table-container {
+  overflow-x: auto;
+}
+
+.logs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.logs-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+}
+
+.logs-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.logs-table tr:hover {
+  background: var(--bg-hover);
+}
+
+.log-level {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.log-level.debug {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.log-level.info {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.log-level.warn {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.log-level.error {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.log-message {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .filter-actions {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+}
+</style>
+
+<script>
+let autoRefreshInterval = null;
+
+// 加载日志服务列表
+async function loadLogServices() {
+  try {
+    const response = await fetch('/api/logs/services');
+    const services = await response.json();
+    
+    const select = document.getElementById('logService');
+    select.innerHTML = '<option value="">全部服务</option>';
+    
+    services.forEach(service => {
+      const option = document.createElement('option');
+      option.value = service.id;
+      option.textContent = service.name;
+      select.appendChild(option);
+    });
+  } catch (error) {
+    console.error('加载日志服务失败:', error);
+  }
+}
+
+// 加载日志
+async function loadLogs() {
+  const service = document.getElementById('logService').value;
+  const level = document.getElementById('logLevel').value;
+  const limit = document.getElementById('logLimit').value;
+  
+  try {
+    let url = `/api/logs?limit=${limit}`;
+    if (service) url += `&service=${service}`;
+    if (level) url += `&level=${level}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    renderLogs(data.logs);
+    updateStats(data.logs);
+  } catch (error) {
+    console.error('加载日志失败:', error);
+    showToast('加载日志失败: ' + error.message, 'error');
+  }
+}
+
+// 渲染日志
+function renderLogs(logs) {
+  const tbody = document.getElementById('logsTableBody');
+  
+  if (!logs || logs.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="empty-state">
+          <div class="empty-icon">📭</div>
+          <div class="empty-text">暂无日志</div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+  
+  tbody.innerHTML = logs.map(log => `
+    <tr>
+      <td>${formatTime(log.timestamp)}</td>
+      <td><span class="log-level ${log.level.toLowerCase()}">${log.level}</span></td>
+      <td>${log.source}</td>
+      <td class="log-message">${escapeHtml(log.message)}</td>
+    </tr>
+  `).join('');
+}
+
+// 更新统计
+function updateStats(logs) {
+  document.getElementById('totalLogs').textContent = logs.length;
+  document.getElementById('errorLogs').textContent = logs.filter(l => l.level === 'ERROR').length;
+  document.getElementById('warnLogs').textContent = logs.filter(l => l.level === 'WARN').length;
+}
+
+// 自动刷新
+function autoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+    showToast('已停止自动刷新', 'info');
+  } else {
+    loadLogs();
+    autoRefreshInterval = setInterval(loadLogs, 5000);
+    showToast('已开始自动刷新 (5秒)', 'success');
+  }
+}
+
+// 清空日志
+async function clearLogs() {
+  const service = document.getElementById('logService').value;
+  if (!service) {
+    showToast('请先选择服务', 'warning');
+    return;
+  }
+  
+  if (!confirm(`确定要清空 ${service} 的日志吗？`)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/logs/${service}/clear`, {
+      method: 'POST'
+    });
+    const result = await response.json();
+    
+    if (response.ok) {
+      showToast('日志已清空', 'success');
+      loadLogs();
+    } else {
+      showToast(result.error || '清空失败', 'error');
+    }
+  } catch (error) {
+    showToast('清空失败: ' + error.message, 'error');
+  }
+}
+
+// 格式化时间
+function formatTime(timestamp) {
+  if (!timestamp) return '-';
+  const date = new Date(timestamp);
+  return date.toLocaleString('zh-CN');
+}
+
+// HTML转义
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// 页面加载时初始化
+loadLogServices();
+loadLogs();
+</script>
+{{end}}

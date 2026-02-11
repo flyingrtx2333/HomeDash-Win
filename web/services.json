@@ -1,5 +1,19 @@
 [
   {
+    "id": "openclaw",
+    "name": "OpenClaw",
+    "description": "AI智能助手与自动化网关",
+    "port": 18789,
+    "icon": "🦞",
+    "enabled": true,
+    "launchPath": "",
+    "launchCommand": "",
+    "processName": "",
+    "autoStart": false,
+    "createdAt": 1769097408289,
+    "updatedAt": 0
+  },
+  {
     "id": "lucky",
     "name": "Lucky",
     "description": "DDNS、反向代理、证书自动化",
