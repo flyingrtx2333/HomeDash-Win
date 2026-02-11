@@ -193,7 +193,6 @@ func PingAllServices(c *gin.Context) {
 
 	results := make([]PingResult, 0, len(services))
 	var wg sync.WaitGroup
-	var mu sync.Mutex
 
 	// 添加超时控制
 	type pingResultWrapper struct {

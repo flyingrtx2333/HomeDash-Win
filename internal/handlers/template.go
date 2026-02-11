@@ -29,6 +29,7 @@ func LoadTemplates() (*template.Template, error) {
 			filepath.Join(templateDir, "partials", "navbar.html"),
 			filepath.Join(templateDir, "partials", "footer.html"),
 			filepath.Join(templateDir, "pages", "all.html"),
+			filepath.Join(templateDir, "pages", "logs.html"),
 			filepath.Join(templateDir, "pages", "home.html"),
 			filepath.Join(templateDir, "pages", "monitor.html"),
 			filepath.Join(templateDir, "pages", "process.html"),

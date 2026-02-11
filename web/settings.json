@@ -1,5 +1,5 @@
 {
-  "serverIp": "3070ti",
+  "serverIp": "127.0.0.1",
   "backgroundUrl": "/static/backgrounds/mountain.jpg",
   "theme": "dark",
   "webdavRoot": "",
