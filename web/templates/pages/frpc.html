@@ -1,0 +1,52 @@
+{{define "frpc.html"}}
+{{template "master.html" .}}
+{{end}}
+
+{{define "pages/frpc-content"}}
+<div class="section-header">
+  <h2>内网穿透 (FRP)</h2>
+</div>
+
+<!-- 状态卡片 -->
+<div class="settings-card frpc-status-card">
+  <h3>运行状态</h3>
+  <p class="settings-desc">FRP 客户端用于将内网服务暴露到公网</p>
+  <div class="frpc-status-row">
+    <div class="frpc-status-info">
+      <span class="frpc-status-label">状态：</span>
+      <span class="frpc-status-value" id="frpcStatusText">-</span>
+      <span class="frpc-pid" id="frpcPidText"></span>
+    </div>
+    <div class="frpc-actions">
+      <button type="button" class="btn-outline" id="frpcStartBtn">▶ 启动</button>
+      <button type="button" class="btn-outline btn-danger" id="frpcStopBtn">⏹ 停止</button>
+    </div>
+  </div>
+</div>
+
+<!-- 开机自启 -->
+<div class="settings-card">
+  <h3>开机自启</h3>
+  <p class="settings-desc">系统启动时自动运行 frpc 客户端</p>
+  <div class="settings-toggle-group">
+    <label>启用开机自启</label>
+    <label class="toggle-switch">
+      <input type="checkbox" id="frpcAutoStartToggle" />
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+  <div class="settings-status">
+    <span>当前状态：<strong id="frpcAutoStartStatus">-</strong></span>
+  </div>
+</div>
+
+<!-- 配置编辑 -->
+<div class="settings-card">
+  <h3>配置参数 (frpc.toml)</h3>
+  <p class="settings-desc">修改配置后需重启 frpc 生效</p>
+  <div class="frpc-config-editor">
+    <textarea id="frpcConfigTextarea" rows="16" placeholder="serverAddr = &#34;1.2.3.4&#34;&#10;serverPort = 7000&#10;auth.token = &#34;xxx&#34;&#10;&#10;[[proxies]]&#10;name = &#34;web&#34;&#10;type = &#34;tcp&#34;&#10;localIP = &#34;127.0.0.1&#34;&#10;localPort = 80&#10;remotePort = 8080"></textarea>
+    <button type="button" class="btn-outline" id="frpcSaveConfigBtn">保存配置</button>
+  </div>
+</div>
+{{end}}

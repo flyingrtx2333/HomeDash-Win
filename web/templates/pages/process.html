@@ -5,24 +5,146 @@
 {{define "pages/process-content"}}
 <div class="section-header">
   <h2>进程管理</h2>
-  <button class="btn-outline" id="refreshProcessBtn">🔄 刷新</button>
+  <div class="process-controls">
+    <div class="search-box">
+      <input type="text" id="processSearch" placeholder="搜索进程..." />
+      <span class="search-icon">🔍</span>
+    </div>
+    <select id="processFilter" class="filter-select">
+      <option value="all">全部进程</option>
+      <option value="running">运行中</option>
+      <option value="high-cpu">高CPU使用</option>
+      <option value="high-memory">高内存使用</option>
+    </select>
+    <select id="processSort" class="filter-select">
+      <option value="cpu-desc">CPU使用率降序</option>
+      <option value="cpu-asc">CPU使用率升序</option>
+      <option value="memory-desc">内存使用降序</option>
+      <option value="memory-asc">内存使用升序</option>
+      <option value="name">进程名</option>
+    </select>
+    <button class="btn-outline" id="refreshProcessBtn">🔄 刷新</button>
+    <button class="btn-outline" id="killSelectedBtn" disabled>💀 结束选中</button>
+  </div>
 </div>
+
+<div class="process-summary">
+  <div class="summary-item">
+    <div class="summary-icon">📊</div>
+    <div class="summary-content">
+      <div class="summary-value" id="totalProcesses">0</div>
+      <div class="summary-label">总进程数</div>
+    </div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-icon">⚡</div>
+    <div class="summary-content">
+      <div class="summary-value" id="highCpuProcesses">0</div>
+      <div class="summary-label">高CPU进程</div>
+    </div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-icon">💾</div>
+    <div class="summary-content">
+      <div class="summary-value" id="highMemoryProcesses">0</div>
+      <div class="summary-label">高内存进程</div>
+    </div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-icon">🔄</div>
+    <div class="summary-content">
+      <div class="summary-value" id="autoRefreshStatus">关</div>
+      <div class="summary-label">自动刷新</div>
+    </div>
+  </div>
+</div>
+
 <div class="process-table-container">
-  <table class="process-table">
-    <thead>
-      <tr>
-        <th>PID</th>
-        <th>进程名</th>
-        <th>CPU %</th>
-        <th>内存</th>
-        <th>状态</th>
-      </tr>
-    </thead>
-    <tbody id="processTableBody">
-      <tr>
-        <td colspan="5" class="loading-row">加载中...</td>
-      </tr>
-    </tbody>
-  </table>
+  <div class="table-header">
+    <label class="checkbox-all">
+      <input type="checkbox" id="selectAllCheckbox" />
+      <span class="checkmark"></span>
+    </label>
+    <div class="table-column-header" data-sort="pid">PID <span class="sort-arrow">↕️</span></div>
+    <div class="table-column-header" data-sort="name">进程名 <span class="sort-arrow">↕️</span></div>
+    <div class="table-column-header" data-sort="cpu">CPU% <span class="sort-arrow">↕️</span></div>
+    <div class="table-column-header" data-sort="memory">内存 <span class="sort-arrow">↕️</span></div>
+    <div class="table-column-header" data-sort="user">用户 <span class="sort-arrow">↕️</span></div>
+    <div class="table-column-header" data-sort="status">状态 <span class="sort-arrow">↕️</span></div>
+    <div class="table-column-header">操作</div>
+  </div>
+  <div class="table-body" id="processTableBody">
+    <div class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">加载中...</div>
+    </div>
+  </div>
+</div>
+
+<!-- 进程详情弹窗 -->
+<div class="modal-overlay" id="processDetailModal">
+  <div class="modal modal-large">
+    <div class="modal-header">
+      <h3>进程详情</h3>
+      <button class="modal-close" id="closeProcessDetailModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="process-detail-info">
+        <div class="detail-row">
+          <span class="detail-label">进程名:</span>
+          <span class="detail-value" id="detailName"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">PID:</span>
+          <span class="detail-value" id="detailPid"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">CPU使用率:</span>
+          <span class="detail-value" id="detailCpu"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">内存使用:</span>
+          <span class="detail-value" id="detailMemory"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">用户:</span>
+          <span class="detail-value" id="detailUser"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">状态:</span>
+          <span class="detail-value" id="detailStatus"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">启动时间:</span>
+          <span class="detail-value" id="detailStartTime"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">路径:</span>
+          <span class="detail-value" id="detailPath"></span>
+        </div>
+      </div>
+      <div class="process-actions">
+        <button class="btn btn-danger" id="killProcessBtn">💀 结束进程</button>
+        <button class="btn btn-secondary" id="refreshProcessDetailBtn">🔄 刷新</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 批量操作确认弹窗 -->
+<div class="modal-overlay" id="batchKillModal">
+  <div class="modal modal-small">
+    <div class="modal-header">
+      <h3>确认结束进程</h3>
+    </div>
+    <div class="modal-body">
+      <p>确定要结束 <strong id="selectedCount">0</strong> 个选中的进程吗？</p>
+      <p class="warning-text">警告：强制结束进程可能导致数据丢失</p>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-secondary" id="cancelBatchKillBtn">取消</button>
+      <button class="btn btn-danger" id="confirmBatchKillBtn">确定结束</button>
+    </div>
+  </div>
 </div>
 {{end}}

@@ -8,81 +8,124 @@
     <span id="statusText">正在连接...</span>
   </div>
 
-  <div class="monitor-grid">
-    <!-- CPU -->
-    <div class="monitor-card">
-      <h3>CPU 使用率</h3>
-      <div class="progress-ring">
-        <svg>
-          <circle class="progress-ring-bg" cx="70" cy="70" r="60"></circle>
-          <circle class="progress-ring-fill cpu" id="cpuRing" cx="70" cy="70" r="60"></circle>
-        </svg>
-        <div class="progress-value"><span id="cpuValue">0</span><span>%</span></div>
+  <!-- 时间范围选择器 -->
+  <div class="time-range-selector">
+    <button class="time-btn active" data-range="1h">1小时</button>
+    <button class="time-btn" data-range="6h">6小时</button>
+    <button class="time-btn" data-range="24h">24小时</button>
+    <button class="time-btn" data-range="7d">7天</button>
+  </div>
+
+  <!-- 主监控网格 -->
+  <div class="monitor-grid-enhanced">
+    
+    <!-- CPU 监控卡片 -->
+    <div class="monitor-card-enhanced cpu-card">
+      <div class="card-header">
+        <h3>CPU 使用率</h3>
+        <div class="card-actions">
+          <span class="current-value" id="currentCpu">0%</span>
+        </div>
       </div>
-      <div class="monitor-info">
-        <span class="label" id="cpuModel">-</span>
-        <span class="value" id="cpuCores">- 核心</span>
+      <div class="chart-container">
+        <canvas id="cpuChart" height="200"></canvas>
       </div>
-      <div class="temp-badge" id="cpuTemp" style="display: none;">
-        <span class="temp-icon">🌡️</span>
-        <span class="temp-value">--</span>°C
+      <div class="monitor-details">
+        <div class="detail-item">
+          <span class="detail-label">型号</span>
+          <span class="detail-value" id="cpuModel">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">核心</span>
+          <span class="detail-value" id="cpuCores">-</span>
+        </div>
+        <div class="detail-item" id="cpuTempDetail">
+          <span class="detail-label">温度</span>
+          <span class="detail-value" id="cpuTemp">--°C</span>
+        </div>
       </div>
     </div>
 
-    <!-- 内存 -->
-    <div class="monitor-card">
-      <h3>内存使用率</h3>
-      <div class="progress-ring">
-        <svg>
-          <circle class="progress-ring-bg" cx="70" cy="70" r="60"></circle>
-          <circle class="progress-ring-fill memory" id="memoryRing" cx="70" cy="70" r="60"></circle>
-        </svg>
-        <div class="progress-value"><span id="memoryValue">0</span><span>%</span></div>
+    <!-- 内存监控卡片 -->
+    <div class="monitor-card-enhanced memory-card">
+      <div class="card-header">
+        <h3>内存使用率</h3>
+        <div class="card-actions">
+          <span class="current-value" id="currentMemory">0%</span>
+        </div>
       </div>
-      <div class="monitor-info">
-        <span class="label" id="memoryUsed">0 GB / 0 GB</span>
-        <span class="value" id="memoryAvailable">可用: 0 GB</span>
+      <div class="chart-container">
+        <canvas id="memoryChart" height="200"></canvas>
+      </div>
+      <div class="monitor-details">
+        <div class="detail-item">
+          <span class="detail-label">已用</span>
+          <span class="detail-value" id="memoryUsed">0 GB</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">总量</span>
+          <span class="detail-value" id="memoryTotal">0 GB</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">可用</span>
+          <span class="detail-value" id="memoryAvailable">0 GB</span>
+        </div>
       </div>
     </div>
 
-    <!-- GPU -->
-    <div class="monitor-card">
-      <h3>GPU 使用率</h3>
-      <div id="gpuContent">
-        <div class="progress-ring">
-          <svg>
-            <circle class="progress-ring-bg" cx="70" cy="70" r="60"></circle>
-            <circle class="progress-ring-fill gpu" id="gpuRing" cx="70" cy="70" r="60"></circle>
-          </svg>
-          <div class="progress-value"><span id="gpuValue">0</span><span>%</span></div>
-        </div>
-        <div class="monitor-info">
-          <span class="label" id="gpuModel">-</span>
-          <span class="value" id="gpuMemory">显存: 0 / 0 MB</span>
-        </div>
-        <div class="temp-badge" id="gpuTemp">
-          <span class="temp-icon">🌡️</span>
-          <span class="temp-value">--</span>°C
+    <!-- GPU 监控卡片 -->
+    <div class="monitor-card-enhanced gpu-card">
+      <div class="card-header">
+        <h3>GPU 使用率</h3>
+        <div class="card-actions">
+          <span class="current-value" id="currentGpu">0%</span>
         </div>
       </div>
-      <div id="gpuUnavailable" class="gpu-unavailable" style="display: none;">
+      <div class="chart-container">
+        <canvas id="gpuChart" height="200"></canvas>
+      </div>
+      <div class="monitor-details" id="gpuDetails">
+        <div class="detail-item">
+          <span class="detail-label">型号</span>
+          <span class="detail-value" id="gpuModel">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">显存</span>
+          <span class="detail-value" id="gpuMemory">0 / 0 MB</span>
+        </div>
+        <div class="detail-item" id="gpuTempDetail">
+          <span class="detail-label">温度</span>
+          <span class="detail-value" id="gpuTemp">--°C</span>
+        </div>
+      </div>
+      <div class="gpu-unavailable" id="gpuUnavailable" style="display: none;">
         GPU 不可用或未检测到
       </div>
     </div>
 
-    <!-- 网络流量 -->
-    <div class="monitor-card network-card">
-      <h3>网络流量</h3>
+    <!-- 网络流量卡片 -->
+    <div class="monitor-card-enhanced network-card">
+      <div class="card-header">
+        <h3>网络流量</h3>
+        <div class="card-actions">
+          <span class="live-indicator">● 实时</span>
+        </div>
+      </div>
       <div class="network-stats">
-        <div class="network-speed">
+        <div class="network-current">
           <div class="speed-item upload">
-            <span class="speed-icon">↑</span>
-            <span class="speed-value" id="netSpeedUp">0 B/s</span>
+            <div class="speed-icon">↑</div>
+            <div class="speed-value" id="netSpeedUp">0 KB/s</div>
+            <div class="speed-label">上传</div>
           </div>
           <div class="speed-item download">
-            <span class="speed-icon">↓</span>
-            <span class="speed-value" id="netSpeedDown">0 B/s</span>
+            <div class="speed-icon">↓</div>
+            <div class="speed-value" id="netSpeedDown">0 KB/s</div>
+            <div class="speed-label">下载</div>
           </div>
+        </div>
+        <div class="network-chart">
+          <canvas id="networkChart" height="150"></canvas>
         </div>
         <div class="network-total">
           <div class="total-item">
@@ -98,9 +141,49 @@
     </div>
   </div>
 
-  <!-- 磁盘使用 -->
-  <div class="disk-section">
-    <h3>磁盘使用</h3>
-    <div id="diskList"></div>
+  <!-- 磁盘使用部分 -->
+  <div class="disk-section-enhanced">
+    <div class="section-header">
+      <h3>磁盘使用</h3>
+      <div class="refresh-btn" id="refreshDisk">🔄 刷新</div>
+    </div>
+    <div id="diskListEnhanced" class="disk-list-enhanced"></div>
+  </div>
+
+  <!-- 系统信息概览 -->
+  <div class="system-info-section">
+    <div class="section-header">
+      <h3>系统信息</h3>
+    </div>
+    <div class="system-info-grid">
+      <div class="info-card">
+        <div class="info-icon">💻</div>
+        <div class="info-content">
+          <div class="info-label">操作系统</div>
+          <div class="info-value" id="osInfo">Windows</div>
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-icon">⏱️</div>
+        <div class="info-content">
+          <div class="info-label">运行时间</div>
+          <div class="info-value" id="uptime">-</div>
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-icon">🔄</div>
+        <div class="info-content">
+          <div class="info-label">进程数量</div>
+          <div class="info-value" id="processCount">-</div>
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-icon">📊</div>
+        <div class="info-content">
+          <div class="info-label">系统负载</div>
+          <div class="info-value" id="systemLoad">-</div>
+        </div>
+      </div>
+    </div>
   </div>
 {{end}}

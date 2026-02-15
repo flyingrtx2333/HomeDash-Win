@@ -422,40 +422,400 @@ async function fetchFavicon() {
 }
 
 // ========== 进程管理 ==========
-async function loadProcesses() {
-    const tbody = document.getElementById('processTableBody');
-    tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载中...</td></tr>';
+let processesData = [];
+let filteredProcesses = [];
+let selectedProcesses = new Set();
+let processAutoRefreshInterval = null;
+let currentSort = { field: 'cpu', order: 'desc' };
 
-    try {
-        const response = await fetch('/api/processes');
-        if (response.ok) {
-            const processes = await response.json();
-            renderProcesses(processes);
-        }
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载失败</td></tr>';
+const processTableBody = document.getElementById('processTableBody');
+const refreshProcessBtn = document.getElementById('refreshProcessBtn');
+const processSearch = document.getElementById('processSearch');
+const processFilter = document.getElementById('processFilter');
+const processSort = document.getElementById('processSort');
+const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+const killSelectedBtn = document.getElementById('killSelectedBtn');
+const totalProcessesEl = document.getElementById('totalProcesses');
+const highCpuProcessesEl = document.getElementById('highCpuProcesses');
+const highMemoryProcessesEl = document.getElementById('highMemoryProcesses');
+const autoRefreshStatusEl = document.getElementById('autoRefreshStatus');
+const processDetailModal = document.getElementById('processDetailModal');
+const closeProcessDetailModal = document.getElementById('closeProcessDetailModal');
+const detailName = document.getElementById('detailName');
+const detailPid = document.getElementById('detailPid');
+const detailCpu = document.getElementById('detailCpu');
+const detailMemory = document.getElementById('detailMemory');
+const detailUser = document.getElementById('detailUser');
+const detailStatus = document.getElementById('detailStatus');
+const detailStartTime = document.getElementById('detailStartTime');
+const detailPath = document.getElementById('detailPath');
+const killProcessBtn = document.getElementById('killProcessBtn');
+const refreshProcessDetailBtn = document.getElementById('refreshProcessDetailBtn');
+const batchKillModal = document.getElementById('batchKillModal');
+const cancelBatchKillBtn = document.getElementById('cancelBatchKillBtn');
+const confirmBatchKillBtn = document.getElementById('confirmBatchKillBtn');
+const selectedCountEl = document.getElementById('selectedCount');
+
+function initProcessManagement() {
+    if (!document.getElementById('processTableBody')) return;
+    bindProcessEvents();
+    loadProcesses();
+}
+
+function bindProcessEvents() {
+    if (refreshProcessBtn) refreshProcessBtn.addEventListener('click', loadProcesses);
+    if (processSearch) processSearch.addEventListener('input', debounce(filterAndRenderProcesses, 300));
+    if (processFilter) processFilter.addEventListener('change', filterAndRenderProcesses);
+    if (processSort) processSort.addEventListener('change', sortAndRenderProcesses);
+    if (selectAllCheckbox) selectAllCheckbox.addEventListener('change', toggleSelectAll);
+    if (killSelectedBtn) killSelectedBtn.addEventListener('click', showBatchKillModal);
+    if (closeProcessDetailModal) closeProcessDetailModal.addEventListener('click', hideProcessDetailModal);
+    if (killProcessBtn) killProcessBtn.addEventListener('click', killSingleProcess);
+    if (refreshProcessDetailBtn) refreshProcessDetailBtn.addEventListener('click', refreshCurrentProcessDetail);
+    if (cancelBatchKillBtn) cancelBatchKillBtn.addEventListener('click', hideBatchKillModal);
+    if (confirmBatchKillBtn) confirmBatchKillBtn.addEventListener('click', killSelectedProcesses);
+    if (processDetailModal) {
+        processDetailModal.addEventListener('click', function(e) {
+            if (e.target === processDetailModal) hideProcessDetailModal();
+        });
+    }
+    if (batchKillModal) {
+        batchKillModal.addEventListener('click', function(e) {
+            if (e.target === batchKillModal) hideBatchKillModal();
+        });
     }
 }
 
+async function loadProcesses() {
+    const container = document.getElementById('processTableBody');
+    if (!container) return;
+    container.innerHTML = `
+        <div class="loading-overlay">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">加载中...</div>
+        </div>
+    `;
+    try {
+        const response = await fetch('/api/processes');
+        if (response.ok) {
+            processesData = await response.json();
+            updateSummaryStats();
+            filterAndRenderProcesses();
+        } else {
+            throw new Error('Failed to load processes');
+        }
+    } catch (error) {
+        container.innerHTML = `
+            <div class="loading-overlay">
+                <div>加载失败</div>
+                <button class="btn btn-primary" onclick="loadProcesses()">重试</button>
+            </div>
+        `;
+        console.error('加载进程失败:', error);
+    }
+}
+
+function updateSummaryStats() {
+    const total = processesData.length;
+    const highCpu = processesData.filter(p => p.cpu > 20).length;
+    const highMemory = processesData.filter(p => p.memory > 100 * 1024 * 1024).length;
+    if (totalProcessesEl) totalProcessesEl.textContent = total;
+    if (highCpuProcessesEl) highCpuProcessesEl.textContent = highCpu;
+    if (highMemoryProcessesEl) highMemoryProcessesEl.textContent = highMemory;
+}
+
+function filterProcesses() {
+    let filtered = [...processesData];
+    if (processSearch && processSearch.value.trim()) {
+        const searchTerm = processSearch.value.toLowerCase().trim();
+        filtered = filtered.filter(p =>
+            p.name.toLowerCase().includes(searchTerm) ||
+            p.pid.toString().includes(searchTerm) ||
+            (p.user && p.user.toLowerCase().includes(searchTerm))
+        );
+    }
+    if (processFilter) {
+        const filterType = processFilter.value;
+        if (filterType === 'running') filtered = filtered.filter(p => p.status === 'running');
+        else if (filterType === 'high-cpu') filtered = filtered.filter(p => p.cpu > 20);
+        else if (filterType === 'high-memory') filtered = filtered.filter(p => p.memory > 100 * 1024 * 1024);
+    }
+    filteredProcesses = filtered;
+    return filtered;
+}
+
+function sortProcesses(processes) {
+    const sortValue = processSort ? processSort.value : 'cpu-desc';
+    const [field, order] = sortValue.split('-');
+    return [...processes].sort((a, b) => {
+        let valueA = a[field];
+        let valueB = b[field];
+        if (field === 'name' || field === 'user' || field === 'status') {
+            valueA = valueA || '';
+            valueB = valueB || '';
+            return order === 'asc' ? valueA.localeCompare(valueB) : valueB.localeCompare(valueA);
+        }
+        return order === 'asc' ? valueA - valueB : valueB - valueA;
+    });
+}
+
+function filterAndRenderProcesses() {
+    renderProcesses(sortProcesses(filterProcesses()));
+}
+
+function sortAndRenderProcesses() {
+    renderProcesses(sortProcesses(filteredProcesses));
+}
+
 function renderProcesses(processes) {
-    const tbody = document.getElementById('processTableBody');
+    const container = document.getElementById('processTableBody');
+    if (!container) return;
     if (!processes || processes.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-row">暂无数据</td></tr>';
+        container.innerHTML = `
+            <div class="loading-overlay">
+                <div>暂无进程数据</div>
+                <button class="btn btn-primary" onclick="loadProcesses()">刷新</button>
+            </div>
+        `;
         return;
     }
+    container.innerHTML = '';
+    processes.forEach(process => {
+        const isSelected = selectedProcesses.has(process.pid);
+        const row = document.createElement('div');
+        row.className = `process-row ${isSelected ? 'selected' : ''}`;
+        row.dataset.pid = process.pid;
+        row.dataset.name = process.name;
+        row.innerHTML = `
+            <div class="process-cell checkbox-cell">
+                <label class="checkbox-item">
+                    <input type="checkbox" class="process-checkbox" value="${process.pid}" ${isSelected ? 'checked' : ''}>
+                    <span class="checkmark"></span>
+                </label>
+            </div>
+            <div class="process-cell pid" title="PID: ${process.pid}">${process.pid}</div>
+            <div class="process-cell name" title="${process.name}">
+                <span class="process-name">${truncateText(process.name, 30)}</span>
+            </div>
+            <div class="process-cell cpu ${process.cpu > 50 ? 'high' : process.cpu > 20 ? 'medium' : ''}" title="CPU: ${process.cpu.toFixed(2)}%">
+                <div class="cpu-bar" style="width: ${Math.min(process.cpu, 100)}%"></div>
+                <span class="cpu-value">${process.cpu.toFixed(1)}%</span>
+            </div>
+            <div class="process-cell memory" title="内存: ${formatBytes(process.memory)}">${formatBytes(process.memory)}</div>
+            <div class="process-cell user" title="${process.user || 'N/A'}">${process.user || 'N/A'}</div>
+            <div class="process-cell status">
+                <span class="status-indicator ${getStatusClass(process.status)}" title="${process.status || 'unknown'}"></span>
+                ${process.status || 'unknown'}
+            </div>
+            <div class="process-cell actions">
+                <button class="action-btn detail" title="查看详情" data-pid="${process.pid}">👁️</button>
+                <button class="action-btn kill" title="结束进程" data-pid="${process.pid}">💀</button>
+            </div>
+        `;
+        container.appendChild(row);
+    });
+    bindProcessRowEvents();
+    updateSelectAllCheckbox();
+    updateKillSelectedButton();
+}
 
-    tbody.innerHTML = processes.map(p => {
-        const cpuClass = p.cpu > 50 ? 'high' : p.cpu > 20 ? 'medium' : '';
-        return `
-            <tr>
-              <td class="pid">${p.pid}</td>
-              <td class="name">${p.name}</td>
-              <td class="cpu ${cpuClass}">${p.cpu.toFixed(1)}%</td>
-              <td class="memory">${formatBytes(p.memory)}</td>
-              <td class="status">${p.status || '-'}</td>
-            </tr>
-          `;
-    }).join('');
+function bindProcessRowEvents() {
+    document.querySelectorAll('.process-checkbox').forEach(checkbox => {
+        checkbox.removeEventListener('change', handleProcessSelection);
+        checkbox.addEventListener('change', handleProcessSelection);
+    });
+    document.querySelectorAll('.action-btn.detail').forEach(btn => {
+        btn.removeEventListener('click', showProcessDetail);
+        btn.addEventListener('click', showProcessDetail);
+    });
+    document.querySelectorAll('.action-btn.kill').forEach(btn => {
+        btn.removeEventListener('click', confirmKillProcess);
+        btn.addEventListener('click', confirmKillProcess);
+    });
+    document.querySelectorAll('.process-row').forEach(row => {
+        row.removeEventListener('click', handleRowClick);
+        row.addEventListener('click', handleRowClick);
+    });
+}
+
+function handleProcessSelection(e) {
+    const checkbox = e.target;
+    const pid = parseInt(checkbox.value);
+    if (checkbox.checked) selectedProcesses.add(pid);
+    else selectedProcesses.delete(pid);
+    const row = checkbox.closest('.process-row');
+    if (row) row.classList.toggle('selected', checkbox.checked);
+    updateSelectAllCheckbox();
+    updateKillSelectedButton();
+}
+
+function handleRowClick(e) {
+    if (e.target.classList.contains('process-checkbox') || e.target.classList.contains('action-btn') || e.target.tagName === 'BUTTON') return;
+    const row = e.currentTarget;
+    const checkbox = row.querySelector('.process-checkbox');
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new Event('change'));
+    }
+}
+
+function toggleSelectAll(e) {
+    const isChecked = e.target.checked;
+    document.querySelectorAll('.process-checkbox').forEach(checkbox => {
+        if (checkbox.checked !== isChecked) {
+            checkbox.checked = isChecked;
+            checkbox.dispatchEvent(new Event('change'));
+        }
+    });
+}
+
+function updateSelectAllCheckbox() {
+    const checkboxes = document.querySelectorAll('.process-checkbox');
+    const selectedCheckboxes = document.querySelectorAll('.process-checkbox:checked');
+    if (selectAllCheckbox) selectAllCheckbox.checked = checkboxes.length > 0 && checkboxes.length === selectedCheckboxes.length;
+}
+
+function updateKillSelectedButton() {
+    const selectedCount = selectedProcesses.size;
+    if (killSelectedBtn) {
+        killSelectedBtn.disabled = selectedCount === 0;
+        killSelectedBtn.textContent = selectedCount > 0 ? `💀 结束选中 (${selectedCount})` : '💀 结束选中';
+    }
+}
+
+function showBatchKillModal() {
+    if (selectedProcesses.size === 0) return;
+    if (selectedCountEl) selectedCountEl.textContent = selectedProcesses.size;
+    if (batchKillModal) batchKillModal.classList.add('active');
+}
+
+function hideBatchKillModal() {
+    if (batchKillModal) batchKillModal.classList.remove('active');
+}
+
+async function killSelectedProcesses() {
+    const pids = Array.from(selectedProcesses);
+    if (pids.length === 0) return;
+    try {
+        const response = await fetch('/api/processes/kill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pids }) });
+        if (response.ok) {
+            showToast(`成功结束 ${pids.length} 个进程`, 'success');
+            hideBatchKillModal();
+            selectedProcesses.clear();
+            loadProcesses();
+        } else {
+            const error = await response.json();
+            showToast(`结束进程失败: ${error.message}`, 'error');
+        }
+    } catch (error) {
+        showToast(`结束进程时发生错误: ${error.message}`, 'error');
+    }
+}
+
+function confirmKillProcess(e) {
+    e.stopPropagation();
+    const pid = parseInt(e.currentTarget.dataset.pid);
+    const process = processesData.find(p => p.pid === pid);
+    if (process && confirm(`确定要结束进程 "${process.name}" (PID: ${pid}) 吗？\n\n警告：强制结束进程可能导致数据丢失`)) {
+        killProcess(pid);
+    }
+}
+
+async function killProcess(pid) {
+    try {
+        const response = await fetch(`/api/processes/${pid}/kill`, { method: 'POST' });
+        if (response.ok) {
+            showToast(`进程 ${pid} 已结束`, 'success');
+            loadProcesses();
+        } else {
+            const error = await response.json();
+            showToast(`结束进程失败: ${error.message}`, 'error');
+        }
+    } catch (error) {
+        showToast(`结束进程时发生错误: ${error.message}`, 'error');
+    }
+}
+
+function showProcessDetail(e) {
+    e.stopPropagation();
+    const pid = parseInt(e.currentTarget.dataset.pid);
+    const process = processesData.find(p => p.pid === pid);
+    if (process) showProcessDetailModal(process);
+}
+
+function showProcessDetailModal(process) {
+    if (detailName) detailName.textContent = process.name;
+    if (detailPid) detailPid.textContent = process.pid;
+    if (detailCpu) detailCpu.textContent = `${process.cpu.toFixed(2)}%`;
+    if (detailMemory) detailMemory.textContent = formatBytes(process.memory);
+    if (detailUser) detailUser.textContent = process.user || 'N/A';
+    if (detailStatus) detailStatus.textContent = process.status || 'unknown';
+    if (detailStartTime) detailStartTime.textContent = process.startTime || 'N/A';
+    if (detailPath) detailPath.textContent = process.path || 'N/A';
+    window.currentProcessPid = process.pid;
+    if (processDetailModal) processDetailModal.classList.add('active');
+}
+
+function hideProcessDetailModal() {
+    if (processDetailModal) processDetailModal.classList.remove('active');
+}
+
+async function killSingleProcess() {
+    const pid = window.currentProcessPid;
+    if (!pid) return;
+    try {
+        const response = await fetch(`/api/processes/${pid}/kill`, { method: 'POST' });
+        if (response.ok) {
+            showToast(`进程 ${pid} 已结束`, 'success');
+            hideProcessDetailModal();
+            loadProcesses();
+        } else {
+            const error = await response.json();
+            showToast(`结束进程失败: ${error.message}`, 'error');
+        }
+    } catch (error) {
+        showToast(`结束进程时发生错误: ${error.message}`, 'error');
+    }
+}
+
+async function refreshCurrentProcessDetail() {
+    const pid = window.currentProcessPid;
+    if (!pid) return;
+    try {
+        const response = await fetch(`/api/processes/${pid}`);
+        if (response.ok) {
+            const process = await response.json();
+            showProcessDetailModal(process);
+            showToast('进程信息已刷新', 'success');
+        } else {
+            showToast('刷新进程信息失败', 'error');
+        }
+    } catch (error) {
+        showToast(`刷新进程信息时发生错误: ${error.message}`, 'error');
+    }
+}
+
+function truncateText(text, maxLength) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+}
+
+function getStatusClass(status) {
+    if (!status) return 'unknown';
+    const lowerStatus = status.toLowerCase();
+    if (lowerStatus.includes('run')) return 'running';
+    if (lowerStatus.includes('sleep')) return 'sleeping';
+    if (lowerStatus.includes('stop') || lowerStatus.includes('wait')) return 'stopped';
+    return 'unknown';
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => { clearTimeout(timeout); func(...args); };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
 // ========== 弹窗管理 ==========
@@ -767,6 +1127,8 @@ document.querySelectorAll('.nav-item').forEach(item => {
 });
 
 function switchPage(pageName) {
+    if (pageName !== 'frpc' && typeof stopFrpcPolling === 'function') stopFrpcPolling();
+
     document.querySelectorAll('.nav-item').forEach(nav => {
         nav.classList.toggle('active', nav.dataset.page === pageName);
     });
@@ -789,6 +1151,8 @@ function switchPage(pageName) {
         loadDockerContainers();
     } else if (pageName === 'settings') {
         loadAppConfig();
+    } else if (pageName === 'frpc') {
+        if (typeof loadFrpcData === 'function') loadFrpcData();
     } else if (pageName === 'ai') {
         loadComfyUIConfig();
         loadWorkflows();
@@ -822,6 +1186,10 @@ function connectMonitorWs() {
     monitorWs.onmessage = (event) => {
         const stats = JSON.parse(event.data);
         updateMonitorUI(stats);
+
+        if (document.getElementById('page-monitor')?.classList.contains('active')) {
+            updateDisksEnhanced(stats.disks);
+        }
     };
 
     monitorWs.onclose = () => {
@@ -898,6 +1266,260 @@ function formatSpeedShort(bytesPerSec) {
     return (bytesPerSec / k / k / k).toFixed(1) + 'G';
 }
 
+// ========== 监控图表（原 monitor-charts.js） ==========
+const chartConfig = {
+    type: 'line',
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300, easing: 'easeOutQuart' },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                titleColor: '#f0f4f8',
+                bodyColor: '#f0f4f8',
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                borderWidth: 1,
+                cornerRadius: 8,
+                displayColors: false,
+                callbacks: { label: function(context) { return context.parsed.y + '%'; } }
+            }
+        },
+        scales: {
+            x: { display: false, grid: { display: false } },
+            y: {
+                beginAtZero: true,
+                max: 100,
+                grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+                ticks: {
+                    color: 'rgba(148, 163, 184, 0.6)',
+                    font: { size: 10 },
+                    callback: function(value) { return value + '%'; }
+                }
+            }
+        },
+        elements: { line: { tension: 0.4, borderWidth: 2 }, point: { radius: 0, hitRadius: 10, hoverRadius: 4 } }
+    }
+};
+
+const dataHistory = { cpu: [], memory: [], gpu: [], network: { upload: [], download: [] } };
+const MAX_DATA_POINTS = 60;
+
+function initCharts() {
+    const cpuCtx = document.getElementById('cpuChart')?.getContext('2d');
+    if (cpuCtx && typeof Chart !== 'undefined') {
+        window.cpuChart = new Chart(cpuCtx, {
+            ...chartConfig,
+            data: {
+                labels: Array(MAX_DATA_POINTS).fill(''),
+                datasets: [{
+                    label: 'CPU',
+                    data: Array(MAX_DATA_POINTS).fill(0),
+                    borderColor: '#6366f1',
+                    backgroundColor: (context) => {
+                        const ctx = context.chart.ctx;
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+                        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.3)');
+                        gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+                        return gradient;
+                    },
+                    fill: true
+                }]
+            }
+        });
+    }
+    const memoryCtx = document.getElementById('memoryChart')?.getContext('2d');
+    if (memoryCtx && typeof Chart !== 'undefined') {
+        window.memoryChart = new Chart(memoryCtx, {
+            ...chartConfig,
+            data: {
+                labels: Array(MAX_DATA_POINTS).fill(''),
+                datasets: [{
+                    label: '内存',
+                    data: Array(MAX_DATA_POINTS).fill(0),
+                    borderColor: '#10b981',
+                    backgroundColor: (context) => {
+                        const ctx = context.chart.ctx;
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+                        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+                        gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+                        return gradient;
+                    },
+                    fill: true
+                }]
+            }
+        });
+    }
+    const gpuCtx = document.getElementById('gpuChart')?.getContext('2d');
+    if (gpuCtx && typeof Chart !== 'undefined') {
+        window.gpuChart = new Chart(gpuCtx, {
+            ...chartConfig,
+            data: {
+                labels: Array(MAX_DATA_POINTS).fill(''),
+                datasets: [{
+                    label: 'GPU',
+                    data: Array(MAX_DATA_POINTS).fill(0),
+                    borderColor: '#f59e0b',
+                    backgroundColor: (context) => {
+                        const ctx = context.chart.ctx;
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+                        gradient.addColorStop(0, 'rgba(245, 158, 11, 0.3)');
+                        gradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
+                        return gradient;
+                    },
+                    fill: true
+                }]
+            }
+        });
+    }
+    const networkCtx = document.getElementById('networkChart')?.getContext('2d');
+    if (networkCtx && typeof Chart !== 'undefined') {
+        window.networkChart = new Chart(networkCtx, {
+            type: 'line',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 300, easing: 'easeOutQuart' },
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: true, labels: { color: 'rgba(148, 163, 184, 0.8)', font: { size: 11 }, boxWidth: 12, padding: 10 } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#f0f4f8',
+                        bodyColor: '#f0f4f8',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: { label: function(context) { return context.dataset.label + ': ' + formatSpeed(context.parsed.y); } }
+                    }
+                },
+                scales: {
+                    x: { display: false, grid: { display: false } },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
+                        ticks: { color: 'rgba(148, 163, 184, 0.6)', font: { size: 10 }, callback: function(value) { return formatSpeed(value); } }
+                    }
+                },
+                elements: { line: { tension: 0.4, borderWidth: 2 }, point: { radius: 0, hitRadius: 10, hoverRadius: 4 } }
+            },
+            data: {
+                labels: Array(MAX_DATA_POINTS).fill(''),
+                datasets: [
+                    { label: '上传', data: Array(MAX_DATA_POINTS).fill(0), borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)', fill: true },
+                    { label: '下载', data: Array(MAX_DATA_POINTS).fill(0), borderColor: '#60a5fa', backgroundColor: 'rgba(96, 165, 250, 0.1)', fill: true }
+                ]
+            }
+        });
+    }
+}
+
+function updateCharts(data) {
+    if (window.cpuChart && data.cpu) {
+        dataHistory.cpu.push(data.cpu.percent || 0);
+        if (dataHistory.cpu.length > MAX_DATA_POINTS) dataHistory.cpu.shift();
+        window.cpuChart.data.datasets[0].data = [...dataHistory.cpu];
+        window.cpuChart.update('none');
+        const cpuValue = document.getElementById('currentCpu');
+        if (cpuValue) { cpuValue.textContent = (data.cpu.percent || 0) + '%'; cpuValue.style.color = getColorByValue(data.cpu.percent || 0); }
+    }
+    if (window.memoryChart && data.memory) {
+        const memPercent = data.memory.usedPercent || 0;
+        dataHistory.memory.push(memPercent);
+        if (dataHistory.memory.length > MAX_DATA_POINTS) dataHistory.memory.shift();
+        window.memoryChart.data.datasets[0].data = [...dataHistory.memory];
+        window.memoryChart.update('none');
+        const memValue = document.getElementById('currentMemory');
+        if (memValue) { memValue.textContent = memPercent + '%'; memValue.style.color = getColorByValue(memPercent); }
+    }
+    if (window.gpuChart && data.gpu && data.gpu.available) {
+        const gpuPercent = data.gpu.usage || 0;
+        dataHistory.gpu.push(gpuPercent);
+        if (dataHistory.gpu.length > MAX_DATA_POINTS) dataHistory.gpu.shift();
+        window.gpuChart.data.datasets[0].data = [...dataHistory.gpu];
+        window.gpuChart.update('none');
+        const gpuValue = document.getElementById('currentGpu');
+        if (gpuValue) { gpuValue.textContent = gpuPercent + '%'; gpuValue.style.color = getColorByValue(gpuPercent); }
+    }
+    if (window.networkChart && data.network) {
+        const uploadSpeed = data.network.uploadSpeed || 0;
+        const downloadSpeed = data.network.downloadSpeed || 0;
+        dataHistory.network.upload.push(uploadSpeed);
+        dataHistory.network.download.push(downloadSpeed);
+        if (dataHistory.network.upload.length > MAX_DATA_POINTS) {
+            dataHistory.network.upload.shift();
+            dataHistory.network.download.shift();
+        }
+        window.networkChart.data.datasets[0].data = [...dataHistory.network.upload];
+        window.networkChart.data.datasets[1].data = [...dataHistory.network.download];
+        window.networkChart.update('none');
+    }
+}
+
+function getColorByValue(value) {
+    if (value < 50) return '#10b981';
+    if (value < 80) return '#f59e0b';
+    return '#ef4444';
+}
+
+function initTimeRangeSelector() {
+    document.querySelectorAll('.time-range-selector .time-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.time-range-selector .time-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+}
+
+function enhanceDiskDisplay(disks) {
+    const container = document.getElementById('diskListEnhanced');
+    if (!container || !disks) return;
+    container.innerHTML = disks.map(disk => {
+        const usedPercent = Math.round((disk.used / disk.total) * 100);
+        const colorClass = usedPercent > 90 ? 'critical' : usedPercent > 70 ? 'warning' : 'normal';
+        const letter = disk.letter || disk.mountPoint || '-';
+        return `
+            <div class="disk-item-enhanced ${colorClass}">
+                <div class="disk-header">
+                    <div class="disk-info">
+                        <span class="disk-letter">${letter}</span>
+                        <span class="disk-name">${disk.name || '本地磁盘'}</span>
+                    </div>
+                    <div class="disk-usage">
+                        <span class="disk-percent">${usedPercent}%</span>
+                        <span class="disk-size">${formatBytes(disk.used)} / ${formatBytes(disk.total)}</span>
+                    </div>
+                </div>
+                <div class="disk-progress">
+                    <div class="disk-progress-bar" style="width: ${usedPercent}%"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function formatUptime(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (days > 0) return `${days}天 ${hours}小时`;
+    if (hours > 0) return `${hours}小时 ${minutes}分钟`;
+    return `${minutes}分钟`;
+}
+
+function updateSystemInfo(data) {
+    const uptimeEl = document.getElementById('uptime');
+    if (uptimeEl && data.uptime) uptimeEl.textContent = formatUptime(data.uptime);
+    const processCountEl = document.getElementById('processCount');
+    if (processCountEl && data.processCount) processCountEl.textContent = data.processCount.toLocaleString();
+    const systemLoadEl = document.getElementById('systemLoad');
+    if (systemLoadEl && data.load) systemLoadEl.textContent = data.load.toFixed(2);
+    const osInfoEl = document.getElementById('osInfo');
+    if (osInfoEl && data.os) osInfoEl.textContent = `${data.os.name} ${data.os.version}`;
+}
+
 function updateMonitorUI(stats) {
     // 更新顶部栏状态小图标
     updateTopBarStats(stats);
@@ -954,6 +1576,14 @@ function updateMonitorUI(stats) {
     }
 
     updateDisks(stats.disks);
+
+    updateCharts({
+        cpu: { percent: stats.cpu.usage },
+        memory: { usedPercent: stats.memory.usedPercent },
+        gpu: stats.gpu.available ? { usage: stats.gpu.usage, available: true } : { available: false },
+        network: stats.network ? { uploadSpeed: stats.network.speedSent, downloadSpeed: stats.network.speedRecv } : null
+    });
+    updateSystemInfo({ uptime: stats.uptime, processCount: stats.processCount, load: stats.load, os: stats.os });
 }
 
 function getTempClass(temp) {
@@ -971,24 +1601,30 @@ function updateRing(id, percent) {
 
 function updateDisks(disks) {
     const container = document.getElementById('diskList');
-    container.innerHTML = disks.map(disk => {
-        const percent = disk.usedPercent;
-        let barClass = '';
-        if (percent >= 90) barClass = 'danger';
-        else if (percent >= 75) barClass = 'warning';
+    if (container) {
+        container.innerHTML = disks.map(disk => {
+            const percent = disk.usedPercent;
+            let barClass = '';
+            if (percent >= 90) barClass = 'danger';
+            else if (percent >= 75) barClass = 'warning';
 
-        return `
-            <div class="disk-item">
-              <div class="disk-header">
-                <span class="disk-name">${disk.mountPoint}</span>
-                <span class="disk-usage">${formatBytes(disk.used)} / ${formatBytes(disk.total)}</span>
-              </div>
-              <div class="disk-bar">
-                <div class="disk-bar-fill ${barClass}" style="width: ${percent}%"></div>
-              </div>
-            </div>
-          `;
-    }).join('');
+            return `
+                <div class="disk-item">
+                  <div class="disk-header">
+                    <span class="disk-name">${disk.mountPoint}</span>
+                    <span class="disk-usage">${formatBytes(disk.used)} / ${formatBytes(disk.total)}</span>
+                  </div>
+                  <div class="disk-bar">
+                    <div class="disk-bar-fill ${barClass}" style="width: ${percent}%"></div>
+                  </div>
+                </div>
+              `;
+        }).join('');
+    }
+}
+
+function updateDisksEnhanced(disks) {
+    enhanceDiskDisplay(disks);
 }
 
 function formatBytes(bytes) {
@@ -1121,7 +1757,6 @@ document.getElementById('pingAllBtn').addEventListener('click', pingAllServices)
 document.getElementById('importTemplateBtn').addEventListener('click', importTemplate);
 document.getElementById('emptyImportBtn').addEventListener('click', importTemplate);
 document.getElementById('fetchFaviconBtn').addEventListener('click', fetchFavicon);
-document.getElementById('refreshProcessBtn').addEventListener('click', loadProcesses);
 
 // ========== 文件管理 ==========
 async function loadFiles(path) {
@@ -2068,6 +2703,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadSettingsFromServer();
     await loadServices();
     await loadPresetBackgrounds();
+
+    if (document.getElementById('page-process')) initProcessManagement();
+    if (document.getElementById('cpuChart') && typeof Chart !== 'undefined') {
+        initCharts();
+        initTimeRangeSelector();
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const activeModal = document.querySelector('.modal-overlay.active, .modal-overlay.show');
+            if (activeModal) activeModal.classList.remove('active', 'show');
+        }
+    });
 
     // 连接 WebSocket 以更新顶部栏状态
     connectMonitorWs();

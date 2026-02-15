@@ -5,7 +5,10 @@ winres/
 go.mod
 go.sum
 *.7z
+*.zip
 release
 .cursorignore
 *.rar
 PROJECTRULE.md
+*.toml
+*.syso

@@ -116,6 +116,9 @@ func main() {
 	// 设置所有路由
 	routes.SetupRoutes(router, webDir, port)
 
+	// 若 frpc 开机自启已启用，则启动 frpc
+	handlers.MaybeLaunchFrpcOnStartup()
+
 	addr := "0.0.0.0:" + port
 	log.Printf("HomeDash Win is running at http://%s", addr)
 	if err := router.Run(addr); err != nil {

@@ -46,6 +46,9 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 	router.GET("/settings", func(c *gin.Context) {
 		c.HTML(200, "home.html", gin.H{})
 	})
+	router.GET("/frpc", func(c *gin.Context) {
+		c.HTML(200, "home.html", gin.H{})
+	})
 
 	// 静态文件服务
 	router.StaticFS("/static", http.Dir(webDir))
@@ -109,6 +112,17 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 		api.POST("/comfyui/config", handlers.UpdateComfyUIConfig)
 		api.POST("/comfyui/workflow/execute", handlers.ExecuteComfyUIWorkflow)
 		api.GET("/comfyui/workflow/status/:id", handlers.GetComfyUIWorkflowStatus)
+	}
+
+	// ========== 内网穿透 FRPC ==========
+	{
+		api.GET("/frpc/config", handlers.GetFrpcConfig)
+		api.POST("/frpc/config", handlers.UpdateFrpcConfig)
+		api.GET("/frpc/status", handlers.GetFrpcStatus)
+		api.POST("/frpc/start", handlers.StartFrpc)
+		api.POST("/frpc/stop", handlers.StopFrpc)
+		api.GET("/frpc/autostart", handlers.GetFrpcAutoStart)
+		api.POST("/frpc/autostart", handlers.UpdateFrpcAutoStart)
 	}
 
 	// ========== 日志查看器 ==========
