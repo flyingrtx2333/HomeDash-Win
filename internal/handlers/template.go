@@ -39,6 +39,7 @@ func LoadTemplates() (*template.Template, error) {
 			filepath.Join(templateDir, "pages", "comfyui.html"),
 			filepath.Join(templateDir, "pages", "settings.html"),
 			filepath.Join(templateDir, "pages", "frpc.html"),
+			filepath.Join(templateDir, "pages", "websites.html"),
 		}
 
 		templateCache, err = template.New("master.html").

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "b87fd150",
+    "name": "DaoyinAthleteReel",
+    "path": "D:\\flaskProjects\\DaoyinAthleteReel",
+    "domain": "",
+    "port": 6087,
+    "pythonPath": "C:\\Users\\17489\\AppData\\Local\\Programs\\Python\\Python310\\python.exe",
+    "venvPath": "D:\\flaskProjects\\DaoyinAthleteReel\\.venv",
+    "framework": "fastapi",
+    "startCommand": "python app.py",
+    "workingDir": "D:\\flaskProjects\\DaoyinAthleteReel",
+    "requirementsTxt": "D:\\flaskProjects\\DaoyinAthleteReel\\requirements.txt",
+    "environmentVars": {},
+    "autoStart": false,
+    "enabled": false,
+    "createdAt": 1771260437008,
+    "updatedAt": 1771260473309
+  }
+]

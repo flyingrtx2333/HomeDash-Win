@@ -44,9 +44,88 @@
 <div class="settings-card">
   <h3>配置参数 (frpc.toml)</h3>
   <p class="settings-desc">修改配置后需重启 frpc 生效</p>
-  <div class="frpc-config-editor">
+
+  <!-- 模式切换 -->
+  <div class="frpc-mode-toggle">
+    <button type="button" class="frpc-mode-btn active" data-mode="simple" id="frpcModeSimple">简单模式</button>
+    <button type="button" class="frpc-mode-btn" data-mode="pro" id="frpcModePro">专业模式</button>
+  </div>
+
+  <!-- 简单模式：表单 -->
+  <div class="frpc-simple-form" id="frpcSimpleForm">
+    <div class="frpc-form-row">
+      <div class="form-group">
+        <label>服务器地址</label>
+        <input type="text" id="frpcServerAddr" class="form-control" placeholder="例如 1.2.3.4" />
+      </div>
+      <div class="form-group">
+        <label>端口</label>
+        <input type="number" id="frpcServerPort" class="form-control" placeholder="7000" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Token</label>
+      <input type="text" id="frpcToken" class="form-control" placeholder="与服务端一致的认证 Token" />
+    </div>
+    <div class="frpc-proxies-section">
+      <div class="frpc-proxies-header">
+        <label>应用代理</label>
+        <button type="button" class="btn-outline btn-sm" id="frpcAddProxyBtn">+ 添加应用</button>
+      </div>
+      <div class="frpc-proxy-list" id="frpcProxyList"></div>
+      <div class="frpc-proxy-empty" id="frpcProxyEmpty">暂无应用，点击「添加应用」</div>
+    </div>
+    <button type="button" class="btn-outline" id="frpcSaveSimpleBtn">保存配置</button>
+  </div>
+
+  <!-- 专业模式：原始 toml 编辑 -->
+  <div class="frpc-config-editor frpc-pro-mode" id="frpcProForm" style="display:none">
     <textarea id="frpcConfigTextarea" rows="16" placeholder="serverAddr = &#34;1.2.3.4&#34;&#10;serverPort = 7000&#10;auth.token = &#34;xxx&#34;&#10;&#10;[[proxies]]&#10;name = &#34;web&#34;&#10;type = &#34;tcp&#34;&#10;localIP = &#34;127.0.0.1&#34;&#10;localPort = 80&#10;remotePort = 8080"></textarea>
     <button type="button" class="btn-outline" id="frpcSaveConfigBtn">保存配置</button>
+  </div>
+</div>
+
+<!-- 应用编辑弹窗（简单模式） -->
+<div class="modal-overlay" id="frpcProxyModal">
+  <div class="modal modal-small frpc-proxy-modal">
+    <div class="modal-header">
+      <h3 id="frpcProxyModalTitle">添加应用</h3>
+      <button class="modal-close" id="frpcProxyModalClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="frpcProxyEditIndex" value="-1" />
+      <div class="form-group">
+        <label>应用名</label>
+        <input type="text" id="frpcProxyName" class="form-control" placeholder="例如 web" />
+      </div>
+      <div class="form-group">
+        <label>类型 (type)</label>
+        <select id="frpcProxyType" class="form-control">
+          <option value="tcp">tcp</option>
+          <option value="udp">udp</option>
+          <option value="http">http</option>
+          <option value="https">https</option>
+        </select>
+      </div>
+      <div class="frpc-form-row">
+        <div class="form-group">
+          <label>本地 IP</label>
+          <input type="text" id="frpcProxyLocalIP" class="form-control" placeholder="127.0.0.1" />
+        </div>
+        <div class="form-group">
+          <label>本地端口</label>
+          <input type="number" id="frpcProxyLocalPort" class="form-control" placeholder="80" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>远程端口</label>
+        <input type="number" id="frpcProxyRemotePort" class="form-control" placeholder="8080" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="frpcProxyModalCancel">取消</button>
+      <button type="button" class="btn-primary" id="frpcProxyModalConfirm">确定</button>
+    </div>
   </div>
 </div>
 {{end}}

@@ -1,0 +1,232 @@
+{{define "websites.html"}}
+{{template "master.html" .}}
+{{end}}
+
+{{define "pages/websites-content"}}
+<div class="section-header">
+  <h2>网站项目管理</h2>
+  <div class="section-header-actions">
+    <button type="button" class="btn-outline btn-sm" id="websiteRefreshStatusBtn" title="刷新所有项目状态">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      刷新状态
+    </button>
+    <button type="button" class="btn-primary" id="websiteAddBtn">+ 创建项目</button>
+  </div>
+</div>
+
+<!-- 项目列表表格 -->
+<div class="websites-table-wrapper">
+  <div class="websites-empty" id="websitesEmpty">
+    <p>暂无项目，点击「创建项目」开始</p>
+  </div>
+  <div class="websites-table-container" id="websitesList">
+    <div class="websites-table-header">
+      <span class="websites-th websites-th-name">项目名称</span>
+      <span class="websites-th websites-th-status">状态</span>
+      <span class="websites-th websites-th-port">端口</span>
+      <span class="websites-th websites-th-path">路径</span>
+      <span class="websites-th websites-th-actions">操作</span>
+    </div>
+    <div class="websites-table-body" id="websitesTableBody">
+      <!-- 行由 JS 动态渲染 -->
+    </div>
+  </div>
+</div>
+
+<!-- 创建/编辑项目弹窗 -->
+<div class="modal-overlay" id="websiteModal">
+  <div class="modal modal-large">
+    <div class="modal-body">
+      <input type="hidden" id="websiteEditId" value="" />
+      <div class="form-group form-group-inline form-group-row">
+        <div class="form-group-inline-item">
+          <label>项目名称 <span class="required">*</span></label>
+          <input type="text" id="websiteName" class="form-control" placeholder="例如：我的Flask应用" />
+        </div>
+        <div class="form-group-inline-item">
+          <label>项目路径 <span class="required">*</span></label>
+          <div class="form-control-group">
+            <input type="text" id="websitePath" class="form-control" placeholder="例如：D:\Projects\myapp" />
+            <button type="button" class="btn-outline btn-sm" id="websitePathBrowseBtn" title="选择文件夹">📁</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-group form-group-inline form-group-row">
+        <div class="form-group-inline-item">
+          <label>端口 <span class="required">*</span></label>
+          <input type="number" id="websitePort" class="form-control" placeholder="5000" min="1" max="65535" />
+        </div>
+        <div class="form-group-inline-item">
+          <label>框架类型</label>
+          <select id="websiteFramework" class="form-control">
+            <option value="flask">Flask</option>
+            <option value="django">Django</option>
+            <option value="fastapi">FastAPI</option>
+            <option value="custom">自定义</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group form-group-inline">
+        <label>Python路径</label>
+        <div class="form-control-group">
+          <select id="websitePythonPath" class="form-control">
+            <option value="">请选择Python版本</option>
+          </select>
+          <button type="button" class="btn-outline btn-sm" id="websiteRefreshPythonBtn">刷新</button>
+        </div>
+        <small class="form-text">与虚拟环境二选一：无虚拟环境时必填；有虚拟环境可不填。创建虚拟环境时需填写</small>
+      </div>
+      <div class="form-group form-group-inline">
+        <label>启动命令 <span class="required">*</span></label>
+        <input type="text" id="websiteStartCommand" class="form-control" placeholder="例如：flask run, python app.py, uvicorn main:app" />
+      </div>
+      <div class="form-group form-group-inline">
+        <label>虚拟环境路径</label>
+        <input type="text" id="websiteVenvPath" class="form-control" placeholder="留空则自动使用：项目路径/venv" />
+        <small class="form-text">与Python路径二选一：有虚拟环境则可不填Python路径，启动时使用虚拟环境中的Python</small>
+      </div>
+      <div class="form-group form-group-inline">
+        <label>requirements.txt路径（可选）</label>
+        <input type="text" id="websiteRequirementsTxt" class="form-control" placeholder="留空则自动使用：项目路径/requirements.txt" />
+      </div>
+      <div class="form-group form-group-inline">
+        <label>环境变量（JSON格式，可选）</label>
+        <textarea id="websiteEnvironmentVars" class="form-control" rows="3" placeholder='{"FLASK_ENV": "development", "DEBUG": "1"}'></textarea>
+      </div>
+      <div class="form-group form-group-inline">
+        <label class="toggle-switch">
+          <input type="checkbox" id="websiteAutoStart" />
+          <span class="toggle-slider"></span>
+          <span>开机自启</span>
+        </label>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="websiteModalCancel">取消</button>
+      <button type="button" class="btn-primary" id="websiteModalConfirm">保存</button>
+      <button type="button" class="modal-close" id="websiteModalClose" title="关闭">&times;</button>
+    </div>
+  </div>
+</div>
+
+<!-- 文件浏览器模态框 -->
+<div class="modal-overlay" id="pathBrowserModal">
+  <div class="modal modal-large">
+    <div class="modal-body">
+      <div class="path-browser">
+        <div class="path-browser-header">
+          <div class="path-breadcrumb" id="pathBreadcrumb">
+            <span class="breadcrumb-item" data-path="">根目录</span>
+          </div>
+          <button class="modal-close" id="pathBrowserClose">&times;</button>
+        </div>
+        <div class="path-browser-body" id="pathBrowserBody">
+          <div class="path-browser-loading">加载中...</div>
+        </div>
+        <div class="path-browser-footer">
+          <div class="path-browser-current">
+            <label>当前路径：</label>
+            <input type="text" id="pathBrowserCurrentPath" class="form-control" readonly />
+          </div>
+          <div class="path-browser-actions">
+            <button type="button" class="btn btn-secondary" id="pathBrowserCancel">取消</button>
+            <button type="button" class="btn-primary" id="pathBrowserConfirm">选择此文件夹</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 项目详情/操作弹窗 -->
+<div class="modal-overlay" id="websiteDetailModal">
+  <div class="modal modal-medium">
+    <div class="modal-header">
+      <h3 id="websiteDetailTitle">项目详情</h3>
+      <button class="modal-close" id="websiteDetailClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="websiteDetailContent">
+        <!-- 项目信息 -->
+        <div class="website-detail-section">
+          <h4>基本信息</h4>
+          <div class="detail-item">
+            <span class="detail-label">项目名称：</span>
+            <span id="detailName">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">项目路径：</span>
+            <span id="detailPath">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">端口：</span>
+            <span id="detailPort">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">框架：</span>
+            <span id="detailFramework">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">启动命令：</span>
+            <span id="detailStartCommand">-</span>
+          </div>
+        </div>
+
+        <!-- 虚拟环境管理 -->
+        <div class="website-detail-section">
+          <h4>虚拟环境</h4>
+          <div class="detail-item">
+            <span class="detail-label">虚拟环境路径：</span>
+            <span id="detailVenvPath">-</span>
+          </div>
+          <div class="venv-actions">
+            <button type="button" class="btn-outline btn-sm" id="websiteCreateVenvBtn">创建虚拟环境</button>
+            <button type="button" class="btn-outline btn-sm btn-danger" id="websiteDeleteVenvBtn">删除虚拟环境</button>
+            <button type="button" class="btn-outline btn-sm" id="websiteInstallRequirementsBtn">安装依赖</button>
+          </div>
+        </div>
+
+        <!-- 运行状态 -->
+        <div class="website-detail-section">
+          <h4>运行状态</h4>
+          <div class="detail-item">
+            <span class="detail-label">状态：</span>
+            <span id="detailStatus">-</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">进程ID：</span>
+            <span id="detailPid">-</span>
+          </div>
+          <div class="website-actions">
+            <button type="button" class="btn-outline" id="websiteStartBtn">▶ 启动</button>
+            <button type="button" class="btn-outline btn-danger" id="websiteStopBtn">⏹ 停止</button>
+            <button type="button" class="btn-outline" id="websiteViewLogsBtn">查看日志</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="websiteDetailCancel">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 日志查看弹窗 -->
+<div class="modal-overlay" id="websiteLogsModal">
+  <div class="modal modal-large">
+    <div class="modal-header">
+      <h3>项目日志</h3>
+      <button class="modal-close" id="websiteLogsClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="logs-container">
+        <pre id="websiteLogsContent" class="logs-content"></pre>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="websiteLogsCancel">关闭</button>
+      <button type="button" class="btn-outline" id="websiteLogsRefreshBtn">刷新</button>
+    </div>
+  </div>
+</div>
+{{end}}

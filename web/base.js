@@ -6,7 +6,7 @@ const settingsPanel = document.getElementById('settingsPanel');
 const bgGrid = document.getElementById('bgGrid');
 const serverIpInput = document.getElementById('serverIp');
 const sidebar = document.getElementById('sidebar');
-const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
 const servicesGrid = document.getElementById('servicesGrid');
 const emptyState = document.getElementById('emptyState');
 const toastContainer = document.getElementById('toastContainer');
@@ -1127,6 +1127,8 @@ document.querySelectorAll('.nav-item').forEach(item => {
         const page = item.dataset.page;
         switchPage(page);
         sidebar.classList.remove('open');
+        // 更新按钮箭头方向
+        if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('sidebar-open');
     });
 });
 
@@ -1166,8 +1168,10 @@ function switchPage(pageName) {
     }
 }
 
-mobileMenuBtn.addEventListener('click', () => {
+sidebarToggleBtn.addEventListener('click', () => {
     sidebar.classList.toggle('open');
+    // 切换按钮箭头方向
+    sidebarToggleBtn.classList.toggle('sidebar-open', sidebar.classList.contains('open'));
 });
 
 // ========== WebSocket 监控 ==========
@@ -2812,4 +2816,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 延迟自动检查更新（静默：仅在有新版本时提示）
     setTimeout(() => checkForUpdate(true), 3000);
+
+    // 初始化侧边栏按钮状态
+    if (sidebarToggleBtn && sidebar) {
+        sidebarToggleBtn.classList.toggle('sidebar-open', sidebar.classList.contains('open'));
+    }
 });

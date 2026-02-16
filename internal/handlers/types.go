@@ -82,6 +82,33 @@ type ProcessStatus struct {
 	PID     int32 `json:"pid"`
 }
 
+// PythonWebsite Python网站项目
+type PythonWebsite struct {
+	ID              string            `json:"id"`              // 项目ID
+	Name            string            `json:"name"`            // 项目名称
+	Path            string            `json:"path"`            // 项目路径（绝对路径）
+	Domain          string            `json:"domain"`          // 域名（可选）
+	Port            int               `json:"port"`            // 端口
+	PythonPath      string            `json:"pythonPath"`      // Python可执行文件路径
+	VenvPath        string            `json:"venvPath"`        // 虚拟环境路径
+	Framework       string            `json:"framework"`       // 框架类型：flask/django/fastapi/custom
+	StartCommand    string            `json:"startCommand"`    // 启动命令（如：flask run, python app.py等）
+	WorkingDir      string            `json:"workingDir"`      // 工作目录（项目根目录）
+	RequirementsTxt string            `json:"requirementsTxt"` // requirements.txt路径
+	EnvironmentVars map[string]string `json:"environmentVars"` // 环境变量
+	AutoStart       bool              `json:"autoStart"`       // 是否开机自启
+	Enabled         bool              `json:"enabled"`         // 是否启用
+	CreatedAt       int64             `json:"createdAt"`
+	UpdatedAt       int64             `json:"updatedAt"`
+}
+
+// PythonVersion Python版本信息
+type PythonVersion struct {
+	Version   string `json:"version"`   // Python版本号（如：3.11.0）
+	Path      string `json:"path"`      // Python可执行文件路径
+	IsDefault bool   `json:"isDefault"` // 是否为默认版本
+}
+
 // AppVersion 当前应用版本号（与 release 保持一致）
 const AppVersion = "0.3.1"
 

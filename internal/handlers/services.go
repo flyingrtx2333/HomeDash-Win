@@ -14,7 +14,8 @@ import (
 
 // 推荐服务模板
 var defaultServiceTemplates = []ServiceCard{
-	{ID: "openclaw", Name: "OpenClaw", Description: "AI智能助手与自动化网关", Port: 18789, Icon: "🦞", Enabled: true},
+	{ID: "openclaw", Name: "OpenClaw", Description: "AI智能助手与自动化网关", Port: 18789, Icon: "/static/images/openclaw.svg", Enabled: true},
+	{ID: "baota", Name: "宝塔", Description: "Linux服务器管理面板", Port: 8888, Icon: "/static/images/bt.svg", Enabled: true},
 	{ID: "lucky", Name: "Lucky", Description: "DDNS、反向代理、证书自动化", Port: 16601, Icon: "🍀", Enabled: true},
 	{ID: "alist", Name: "Alist", Description: "多网盘整合与 WebDAV", Port: 5244, Icon: "/static/images/alist.png", Enabled: true},
 	{ID: "immich", Name: "Immich", Description: "相册备份与 AI 检索", Port: 2283, Icon: "/static/images/immich.png", Enabled: true},
@@ -32,7 +33,8 @@ func InitDefaultServices() {
 	}
 
 	defaultServices := []ServiceCard{
-		{ID: "openclaw", Name: "OpenClaw", Description: "AI智能助手与自动化网关", Port: 18789, Icon: "🦞", Enabled: true, CreatedAt: time.Now().UnixMilli()},
+		{ID: "openclaw", Name: "OpenClaw", Description: "AI智能助手与自动化网关", Port: 18789, Icon: "/static/images/openclaw.svg", Enabled: true, CreatedAt: time.Now().UnixMilli()},
+		{ID: "baota", Name: "宝塔", Description: "Linux服务器管理面板", Port: 8888, Icon: "/static/images/bt.svg", Enabled: true, CreatedAt: time.Now().UnixMilli()},
 		{ID: "lucky", Name: "Lucky", Description: "DDNS、反向代理、证书自动化", Port: 16601, Icon: "🍀", Enabled: true, CreatedAt: time.Now().UnixMilli()},
 		{ID: "alist", Name: "Alist", Description: "多网盘整合与 WebDAV", Port: 5244, Icon: "/static/images/alist.png", Enabled: true, CreatedAt: time.Now().UnixMilli()},
 		{ID: "immich", Name: "Immich", Description: "相册备份与 AI 检索", Port: 2283, Icon: "/static/images/immich.png", Enabled: true, CreatedAt: time.Now().UnixMilli()},

@@ -11,9 +11,32 @@ import (
 	"syscall"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/shirou/gopsutil/v3/process"
 	"golang.org/x/sys/windows/registry"
 )
+
+// FrpcProxy 单个代理配置
+type FrpcProxy struct {
+	Name       string `toml:"name" json:"name"`
+	Type       string `toml:"type" json:"type"`
+	LocalIP    string `toml:"localIP" json:"localIP"`
+	LocalPort  int    `toml:"localPort" json:"localPort"`
+	RemotePort int    `toml:"remotePort" json:"remotePort"`
+}
+
+// FrpcConfigParsed 解析后的 frpc 配置（用于简单模式）
+type FrpcConfigParsed struct {
+	ServerAddr string       `toml:"serverAddr" json:"serverAddr"`
+	ServerPort int          `toml:"serverPort" json:"serverPort"`
+	Auth       FrpcAuth     `toml:"auth" json:"auth"`
+	Proxies    []FrpcProxy  `toml:"proxies" json:"proxies"`
+}
+
+// FrpcAuth auth 配置
+type FrpcAuth struct {
+	Token string `toml:"token" json:"token"`
+}
 
 const frpcAutoStartName = "HomeDash-Frpc"
 
@@ -45,7 +68,7 @@ func getFrpcPaths() (exePath, tomlPath string, err error) {
 	return exePath, tomlPath, nil
 }
 
-// GetFrpcConfig 读取 frpc.toml 内容
+// GetFrpcConfig 读取 frpc.toml 内容（原始字符串）
 func GetFrpcConfig(c *gin.Context) {
 	_, tomlPath, err := getFrpcPaths()
 	if err != nil {
@@ -66,14 +89,79 @@ func GetFrpcConfig(c *gin.Context) {
 	c.JSON(200, gin.H{"config": string(data)})
 }
 
-// UpdateFrpcConfig 保存 frpc.toml 内容
-func UpdateFrpcConfig(c *gin.Context) {
-	var req struct {
-		Config string `json:"config"`
+// GetFrpcConfigParsed 读取并解析 frpc.toml，返回结构化 JSON（用于简单模式）
+func GetFrpcConfigParsed(c *gin.Context) {
+	_, tomlPath, err := getFrpcPaths()
+	if err != nil {
+		c.JSON(500, gin.H{"error": "获取配置路径失败"})
+		return
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
+
+	data, err := os.ReadFile(tomlPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			c.JSON(200, gin.H{"serverAddr": "", "serverPort": 7000, "token": "", "proxies": []interface{}{}})
+			return
+		}
+		c.JSON(500, gin.H{"error": "读取配置失败: " + err.Error()})
+		return
+	}
+
+	var cfg FrpcConfigParsed
+	if err := toml.Unmarshal(data, &cfg); err != nil {
+		c.JSON(500, gin.H{"error": "解析配置失败: " + err.Error()})
+		return
+	}
+
+	// 扁平化返回，方便前端使用
+	res := gin.H{
+		"serverAddr": cfg.ServerAddr,
+		"serverPort": cfg.ServerPort,
+		"token":      cfg.Auth.Token,
+		"proxies":    cfg.Proxies,
+	}
+	if cfg.Proxies == nil {
+		res["proxies"] = []FrpcProxy{}
+	}
+	c.JSON(200, res)
+}
+
+// UpdateFrpcConfig 保存 frpc.toml 内容
+// 支持两种格式：1) config 原始 toml 字符串（专业模式） 2) serverAddr/serverPort/token/proxies 结构化（简单模式）
+func UpdateFrpcConfig(c *gin.Context) {
+	var rawReq struct {
+		Config      string       `json:"config"`
+		ServerAddr  string       `json:"serverAddr"`
+		ServerPort  int          `json:"serverPort"`
+		Token       string       `json:"token"`
+		Proxies     []FrpcProxy  `json:"proxies"`
+	}
+	if err := c.ShouldBindJSON(&rawReq); err != nil {
 		c.JSON(400, gin.H{"error": "无效的请求数据"})
 		return
+	}
+
+	var tomlBytes []byte
+	if rawReq.Config != "" {
+		// 专业模式：直接使用原始 toml
+		tomlBytes = []byte(rawReq.Config)
+	} else {
+		// 简单模式：从结构化数据生成 toml
+		cfg := FrpcConfigParsed{
+			ServerAddr: rawReq.ServerAddr,
+			ServerPort: rawReq.ServerPort,
+			Auth:       FrpcAuth{Token: rawReq.Token},
+			Proxies:    rawReq.Proxies,
+		}
+		if cfg.Proxies == nil {
+			cfg.Proxies = []FrpcProxy{}
+		}
+		var err error
+		tomlBytes, err = toml.Marshal(cfg)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "生成配置失败: " + err.Error()})
+			return
+		}
 	}
 
 	_, tomlPath, err := getFrpcPaths()
@@ -89,7 +177,7 @@ func UpdateFrpcConfig(c *gin.Context) {
 		return
 	}
 
-	if err := os.WriteFile(tomlPath, []byte(req.Config), 0644); err != nil {
+	if err := os.WriteFile(tomlPath, tomlBytes, 0644); err != nil {
 		c.JSON(500, gin.H{"error": "保存配置失败: " + err.Error()})
 		return
 	}

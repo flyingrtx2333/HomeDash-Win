@@ -49,6 +49,9 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 	router.GET("/frpc", func(c *gin.Context) {
 		c.HTML(200, "home.html", gin.H{})
 	})
+	router.GET("/websites", func(c *gin.Context) {
+		c.HTML(200, "home.html", gin.H{})
+	})
 
 	// 静态文件服务
 	router.StaticFS("/static", http.Dir(webDir))
@@ -117,12 +120,46 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 	// ========== 内网穿透 FRPC ==========
 	{
 		api.GET("/frpc/config", handlers.GetFrpcConfig)
+		api.GET("/frpc/config/parsed", handlers.GetFrpcConfigParsed)
 		api.POST("/frpc/config", handlers.UpdateFrpcConfig)
 		api.GET("/frpc/status", handlers.GetFrpcStatus)
 		api.POST("/frpc/start", handlers.StartFrpc)
 		api.POST("/frpc/stop", handlers.StopFrpc)
 		api.GET("/frpc/autostart", handlers.GetFrpcAutoStart)
 		api.POST("/frpc/autostart", handlers.UpdateFrpcAutoStart)
+	}
+
+	// ========== 网站项目管理 ==========
+	{
+		// 项目CRUD
+		api.GET("/websites", handlers.GetWebsites)
+		api.GET("/websites/:id", handlers.GetWebsite)
+		api.POST("/websites", handlers.CreateWebsite)
+		api.PUT("/websites/:id", handlers.UpdateWebsite)
+		api.DELETE("/websites/:id", handlers.DeleteWebsite)
+
+		// Python版本
+		api.GET("/websites/python/versions", handlers.GetPythonVersions)
+
+		// 项目检测
+		api.POST("/websites/detect", handlers.DetectProjectInfo)
+
+		// 目录浏览（用于文件选择器）
+		api.GET("/websites/browse", handlers.BrowseDirectory)
+
+		// 虚拟环境
+		api.POST("/websites/:id/venv/create", handlers.CreateVenv)
+		api.DELETE("/websites/:id/venv", handlers.DeleteVenv)
+		api.POST("/websites/:id/requirements/install", handlers.InstallRequirements)
+
+		// 项目运行
+		api.POST("/websites/:id/start", handlers.StartWebsite)
+		api.POST("/websites/:id/stop", handlers.StopWebsite)
+		api.GET("/websites/:id/status", handlers.GetWebsiteStatus)
+
+		// 日志
+		api.GET("/websites/:id/logs", handlers.GetWebsiteLogs)
+		router.GET("/ws/websites/:id/logs", handlers.StreamWebsiteLogs)
 	}
 
 	// ========== 日志查看器 ==========
