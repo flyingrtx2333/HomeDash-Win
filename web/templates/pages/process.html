@@ -8,7 +8,7 @@
   <div class="process-controls">
     <div class="search-box">
       <input type="text" id="processSearch" placeholder="搜索进程..." />
-      <span class="search-icon">🔍</span>
+      <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
     </div>
     <select id="processFilter" class="filter-select">
       <option value="all">全部进程</option>
@@ -23,35 +23,35 @@
       <option value="memory-asc">内存使用升序</option>
       <option value="name">进程名</option>
     </select>
-    <button class="btn-outline" id="refreshProcessBtn">🔄 刷新</button>
-    <button class="btn-outline" id="killSelectedBtn" disabled>💀 结束选中</button>
+    <button class="btn-outline" id="refreshProcessBtn">刷新</button>
+    <button class="btn-outline" id="killSelectedBtn" disabled>结束选中</button>
   </div>
 </div>
 
 <div class="process-summary">
   <div class="summary-item">
-    <div class="summary-icon">📊</div>
+    <div class="summary-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
     <div class="summary-content">
       <div class="summary-value" id="totalProcesses">0</div>
       <div class="summary-label">总进程数</div>
     </div>
   </div>
   <div class="summary-item">
-    <div class="summary-icon">⚡</div>
+    <div class="summary-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
     <div class="summary-content">
       <div class="summary-value" id="highCpuProcesses">0</div>
       <div class="summary-label">高CPU进程</div>
     </div>
   </div>
   <div class="summary-item">
-    <div class="summary-icon">💾</div>
+    <div class="summary-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
     <div class="summary-content">
       <div class="summary-value" id="highMemoryProcesses">0</div>
       <div class="summary-label">高内存进程</div>
     </div>
   </div>
   <div class="summary-item">
-    <div class="summary-icon">🔄</div>
+    <div class="summary-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
     <div class="summary-content">
       <div class="summary-value" id="autoRefreshStatus">关</div>
       <div class="summary-label">自动刷新</div>
@@ -124,8 +124,8 @@
         </div>
       </div>
       <div class="process-actions">
-        <button class="btn btn-danger" id="killProcessBtn">💀 结束进程</button>
-        <button class="btn btn-secondary" id="refreshProcessDetailBtn">🔄 刷新</button>
+        <button class="btn btn-danger" id="killProcessBtn">结束进程</button>
+        <button class="btn btn-secondary" id="refreshProcessDetailBtn">刷新</button>
       </div>
     </div>
   </div>

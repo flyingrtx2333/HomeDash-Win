@@ -37,10 +37,10 @@ function showToast(message, type = 'info') {
     if (!toastContainer) return;
 
     const icons = {
-        success: '✓',
-        warning: '⚠',
-        error: '✗',
-        info: 'ℹ'
+        success: '<span class="toast-icon-dot success" aria-hidden="true"></span>',
+        warning: '<span class="toast-icon-dot warning" aria-hidden="true"></span>',
+        error: '<span class="toast-icon-dot error" aria-hidden="true"></span>',
+        info: '<span class="toast-icon-dot info" aria-hidden="true"></span>'
     };
 
     const toast = document.createElement('div');
@@ -102,9 +102,10 @@ function renderServices() {
         const linkText = hasPort ? url : (service.enabled ? '本地应用' : '本地应用');
         const cardClass = 'card service-card'; // 所有卡片都正常显示，不显示禁用样式
         const isImage = service.icon && service.icon.startsWith('/');
+        const defaultIconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
         const iconHtml = isImage
             ? `<img class="card-icon" src="${service.icon}" alt="${service.name}" />`
-            : `<div class="card-icon">${service.icon || '🌐'}</div>`;
+            : `<div class="card-icon">${defaultIconSvg}</div>`;
 
         // 连通状态指示器（放在 link 右边）
         const ping = pingResults[service.id];
@@ -112,16 +113,15 @@ function renderServices() {
         if (isEnabled && ping) {
             const statusClass = ping.status === 'ok' ? 'status-ok' :
                 ping.status === 'slow' ? 'status-slow' : 'status-error';
-            const statusIcon = ping.status === 'ok' ? '✓' :
-                ping.status === 'slow' ? '⚠' : '✗';
+            const statusText = ping.status === 'ok' ? '通' : ping.status === 'slow' ? '慢' : '断';
             const latencyText = ping.latency > 0 ? `${ping.latency}ms` : '';
-            statusHtml = `<span class="ping-status-inline ${statusClass}" title="连通状态"><span>${statusIcon}</span><span>${latencyText}</span></span>`;
+            statusHtml = `<span class="ping-status-inline ${statusClass}" title="连通状态"><span>${statusText}</span><span>${latencyText}</span></span>`;
         } else if (isEnabled) {
             statusHtml = `<span class="ping-status-inline status-unknown" title="连通状态"><span>?</span></span>`;
         }
 
         // 自启状态指示器
-        const autostartHtml = service.autoStart ? '<div class="autostart-badge" title="已启用开机自启">🚀</div>' : '';
+        const autostartHtml = service.autoStart ? '<div class="autostart-badge" title="已启用开机自启">自启</div>' : '';
 
         // 启动/停止按钮（根据进程状态动态显示）
         const processStatus = serviceProcessStatus[service.id] || { running: false };
@@ -129,17 +129,21 @@ function renderServices() {
         const hasLaunchConfig = service.launchCommand || service.launchPath;
         if (hasLaunchConfig) {
             if (processStatus.running) {
-                actionBtnHtml = `<button class="card-stop-btn" data-id="${service.id}" title="停止服务">⏹️ 停止</button>`;
+                actionBtnHtml = `<button class="card-stop-btn" data-id="${service.id}" title="停止服务">停止</button>`;
             } else {
-                actionBtnHtml = `<button class="card-launch-btn" data-id="${service.id}" title="启动服务">▶️ 启动</button>`;
+                actionBtnHtml = `<button class="card-launch-btn" data-id="${service.id}" title="启动服务">启动</button>`;
             }
         }
 
         return `
             <div class="${cardClass}" data-id="${service.id}" data-port="${service.port || 0}">
               <div class="card-actions">
-                <button class="card-action-btn edit-btn" data-id="${service.id}" title="编辑">✏️</button>
-                <button class="card-action-btn delete-btn" data-id="${service.id}" title="删除">🗑️</button>
+                <button class="card-action-btn edit-btn" data-id="${service.id}" title="编辑" aria-label="编辑">
+                  <svg class="card-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="card-action-btn delete-btn" data-id="${service.id}" title="删除" aria-label="删除">
+                  <svg class="card-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                </button>
               </div>
               ${autostartHtml}
               ${isEnabled ? `<a href="${url}" target="_blank" rel="noreferrer" class="card-link">` : '<div class="card-link">'}
@@ -353,7 +357,7 @@ function updateServiceLinks() {
 async function pingAllServices() {
     const btn = document.getElementById('pingAllBtn');
     btn.disabled = true;
-    btn.textContent = '🔄 检测中...';
+    btn.textContent = '检测中...';
 
     try {
         const response = await fetch('/api/ping-all');
@@ -369,7 +373,7 @@ async function pingAllServices() {
     }
 
     btn.disabled = false;
-    btn.textContent = '🔍 检测连通';
+    btn.textContent = '检测连通';
 }
 
 // ========== 模板导入 ==========
@@ -418,7 +422,7 @@ async function fetchFavicon() {
     }
 
     btn.disabled = false;
-    btn.textContent = '🔍 获取图标';
+    btn.textContent = '获取图标';
 }
 
 // ========== 进程管理 ==========
@@ -608,8 +612,8 @@ function renderProcesses(processes) {
                 ${process.status || 'unknown'}
             </div>
             <div class="process-cell actions">
-                <button class="action-btn detail" title="查看详情" data-pid="${process.pid}">👁️</button>
-                <button class="action-btn kill" title="结束进程" data-pid="${process.pid}">💀</button>
+                <button class="action-btn detail" title="查看详情" data-pid="${process.pid}">详情</button>
+                <button class="action-btn kill" title="结束进程" data-pid="${process.pid}">结束</button>
             </div>
         `;
         container.appendChild(row);
@@ -679,7 +683,7 @@ function updateKillSelectedButton() {
     const selectedCount = selectedProcesses.size;
     if (killSelectedBtn) {
         killSelectedBtn.disabled = selectedCount === 0;
-        killSelectedBtn.textContent = selectedCount > 0 ? `💀 结束选中 (${selectedCount})` : '💀 结束选中';
+        killSelectedBtn.textContent = selectedCount > 0 ? `结束选中 (${selectedCount})` : '结束选中';
     }
 }
 
@@ -1525,54 +1529,71 @@ function updateMonitorUI(stats) {
     updateTopBarStats(stats);
 
     updateRing('cpuRing', stats.cpu.usage);
-    document.getElementById('cpuValue').textContent = Math.round(stats.cpu.usage);
-    document.getElementById('cpuModel').textContent = stats.cpu.modelName || '-';
-    document.getElementById('cpuCores').textContent = `${stats.cpu.cores} 核心`;
+    const cpuValEl = document.getElementById('cpuValue') || document.getElementById('currentCpu');
+    if (cpuValEl) cpuValEl.textContent = Math.round(stats.cpu.usage) + '%';
+    const cpuModelEl = document.getElementById('cpuModel');
+    if (cpuModelEl) cpuModelEl.textContent = stats.cpu.modelName || '-';
+    const cpuCoresEl = document.getElementById('cpuCores');
+    if (cpuCoresEl) cpuCoresEl.textContent = `${stats.cpu.cores} 核心`;
 
     // CPU 温度
     const cpuTempEl = document.getElementById('cpuTemp');
-    if (stats.cpu.temperature > 0) {
-        cpuTempEl.style.display = 'flex';
-        cpuTempEl.querySelector('.temp-value').textContent = Math.round(stats.cpu.temperature);
-        cpuTempEl.className = 'temp-badge' + getTempClass(stats.cpu.temperature);
-    } else {
-        cpuTempEl.style.display = 'none';
+    if (cpuTempEl) {
+        if (stats.cpu.temperature > 0) {
+            cpuTempEl.style.display = 'flex';
+            const tempVal = cpuTempEl.querySelector('.temp-value');
+            if (tempVal) tempVal.textContent = Math.round(stats.cpu.temperature);
+            else cpuTempEl.textContent = Math.round(stats.cpu.temperature) + '°C';
+            cpuTempEl.className = 'temp-badge' + getTempClass(stats.cpu.temperature);
+        } else {
+            cpuTempEl.style.display = 'none';
+        }
     }
 
     updateRing('memoryRing', stats.memory.usedPercent);
-    document.getElementById('memoryValue').textContent = Math.round(stats.memory.usedPercent);
-    document.getElementById('memoryUsed').textContent =
-        `${formatBytes(stats.memory.used)} / ${formatBytes(stats.memory.total)}`;
-    document.getElementById('memoryAvailable').textContent =
-        `可用: ${formatBytes(stats.memory.available)}`;
+    const memValEl = document.getElementById('memoryValue') || document.getElementById('currentMemory');
+    if (memValEl) memValEl.textContent = Math.round(stats.memory.usedPercent) + '%';
+    const memUsedEl = document.getElementById('memoryUsed');
+    if (memUsedEl) memUsedEl.textContent = `${formatBytes(stats.memory.used)} / ${formatBytes(stats.memory.total)}`;
+    const memAvailEl = document.getElementById('memoryAvailable');
+    if (memAvailEl) memAvailEl.textContent = `可用: ${formatBytes(stats.memory.available)}`;
 
+    const gpuContentEl = document.getElementById('gpuContent');
+    const gpuUnavailEl = document.getElementById('gpuUnavailable');
     if (stats.gpu.available) {
-        document.getElementById('gpuContent').style.display = 'block';
-        document.getElementById('gpuUnavailable').style.display = 'none';
+        if (gpuContentEl) gpuContentEl.style.display = 'block';
+        if (gpuUnavailEl) gpuUnavailEl.style.display = 'none';
         updateRing('gpuRing', stats.gpu.usage);
-        document.getElementById('gpuValue').textContent = Math.round(stats.gpu.usage);
-        document.getElementById('gpuModel').textContent = stats.gpu.name || '-';
-        document.getElementById('gpuMemory').textContent =
-            `显存: ${stats.gpu.memoryUsed} / ${stats.gpu.memoryTotal} MB`;
+        const gpuValEl = document.getElementById('gpuValue') || document.getElementById('currentGpu');
+        if (gpuValEl) gpuValEl.textContent = Math.round(stats.gpu.usage) + '%';
+        const gpuModelEl = document.getElementById('gpuModel');
+        if (gpuModelEl) gpuModelEl.textContent = stats.gpu.name || '-';
+        const gpuMemEl = document.getElementById('gpuMemory');
+        if (gpuMemEl) gpuMemEl.textContent = `显存: ${stats.gpu.memoryUsed} / ${stats.gpu.memoryTotal} MB`;
 
-        // GPU 温度
         const gpuTempEl = document.getElementById('gpuTemp');
-        if (stats.gpu.temperature > 0) {
+        if (gpuTempEl && stats.gpu.temperature > 0) {
             gpuTempEl.style.display = 'flex';
-            gpuTempEl.querySelector('.temp-value').textContent = Math.round(stats.gpu.temperature);
+            const gpuTempVal = gpuTempEl.querySelector('.temp-value');
+            if (gpuTempVal) gpuTempVal.textContent = Math.round(stats.gpu.temperature);
+            else gpuTempEl.textContent = Math.round(stats.gpu.temperature) + '°C';
             gpuTempEl.className = 'temp-badge' + getTempClass(stats.gpu.temperature);
         }
     } else {
-        document.getElementById('gpuContent').style.display = 'none';
-        document.getElementById('gpuUnavailable').style.display = 'block';
+        if (gpuContentEl) gpuContentEl.style.display = 'none';
+        if (gpuUnavailEl) gpuUnavailEl.style.display = 'block';
     }
 
     // 网络流量
     if (stats.network) {
-        document.getElementById('netSpeedUp').textContent = formatSpeed(stats.network.speedSent);
-        document.getElementById('netSpeedDown').textContent = formatSpeed(stats.network.speedRecv);
-        document.getElementById('netTotalUp').textContent = formatBytes(stats.network.bytesSent);
-        document.getElementById('netTotalDown').textContent = formatBytes(stats.network.bytesRecv);
+        const netUp = document.getElementById('netSpeedUp');
+        if (netUp) netUp.textContent = formatSpeed(stats.network.speedSent);
+        const netDown = document.getElementById('netSpeedDown');
+        if (netDown) netDown.textContent = formatSpeed(stats.network.speedRecv);
+        const totalUp = document.getElementById('netTotalUp');
+        if (totalUp) totalUp.textContent = formatBytes(stats.network.bytesSent);
+        const totalDown = document.getElementById('netTotalDown');
+        if (totalDown) totalDown.textContent = formatBytes(stats.network.bytesRecv);
     }
 
     updateDisks(stats.disks);
@@ -1594,6 +1615,7 @@ function getTempClass(temp) {
 
 function updateRing(id, percent) {
     const ring = document.getElementById(id);
+    if (!ring) return;
     const circumference = 2 * Math.PI * 60;
     const offset = circumference - (percent / 100) * circumference;
     ring.style.strokeDashoffset = offset;
@@ -1690,27 +1712,34 @@ function applySettings() {
     if (currentSettings.backgroundUrl) {
         bgLayer.style.backgroundImage = `url('${currentSettings.backgroundUrl}')`;
     }
-    // 应用主题
     applyTheme(currentSettings.theme || 'dark');
 }
 
 function applyTheme(theme) {
-    if (theme === 'light') {
-        document.documentElement.setAttribute('data-theme', 'light');
-        document.getElementById('themeToggle').checked = true;
-    } else {
-        document.documentElement.removeAttribute('data-theme');
-        document.getElementById('themeToggle').checked = false;
+    const t = theme || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    const options = document.getElementById('themeOptions');
+    if (options) {
+        options.querySelectorAll('.theme-option').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-theme') === t);
+        });
     }
 }
 
-// 主题切换事件
-document.getElementById('themeToggle').addEventListener('change', (e) => {
-    const theme = e.target.checked ? 'light' : 'dark';
-    currentSettings.theme = theme;
-    applyTheme(theme);
-    saveSettingsToServer();
-});
+(function initThemeOptions() {
+    const options = document.getElementById('themeOptions');
+    if (!options) return;
+    options.addEventListener('click', (e) => {
+        const btn = e.target.closest('.theme-option');
+        if (!btn) return;
+        const theme = btn.getAttribute('data-theme');
+        if (theme) {
+            currentSettings.theme = theme;
+            applyTheme(theme);
+            saveSettingsToServer();
+        }
+    });
+})();
 
 serverIpInput.addEventListener('input', (e) => {
     const ip = e.target.value.trim();
@@ -1785,8 +1814,10 @@ function renderFiles(files) {
         return;
     }
 
-    tbody.innerHTML = files.map(file => {
-        const icon = file.isDir ? '📁' : getFileIcon(file.name);
+    const folderIconSvg = '<svg class="file-list-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+        const fileIconSvg = '<svg class="file-list-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
+        tbody.innerHTML = files.map(file => {
+        const icon = file.isDir ? folderIconSvg : fileIconSvg;
         const size = file.isDir ? '-' : formatBytes(file.size);
         const time = new Date(file.modTime).toLocaleString('zh-CN');
 
@@ -1797,8 +1828,8 @@ function renderFiles(files) {
               <td class="col-size">${size}</td>
               <td class="col-time">${time}</td>
               <td class="col-actions">
-                ${file.isDir ? '' : `<button class="btn-icon" onclick="downloadFile('${file.path}')" title="下载">📥</button>`}
-                <button class="btn-icon btn-danger-icon" onclick="openDeleteFileModal('${file.path}', '${file.name}')" title="删除">🗑️</button>
+                ${file.isDir ? '' : `<button class="btn-icon" onclick="downloadFile('${file.path}')" title="下载">下载</button>`}
+                <button class="btn-icon btn-danger-icon" onclick="openDeleteFileModal('${file.path}', '${file.name}')" title="删除">删除</button>
               </td>
             </tr>
           `;
@@ -1818,7 +1849,7 @@ function renderBreadcrumb(path) {
     const breadcrumb = document.getElementById('breadcrumb');
     const parts = path.split('/').filter(p => p);
 
-    let html = `<span class="breadcrumb-item" data-path="/" onclick="loadFiles('/')">🏠 根目录</span>`;
+    let html = `<span class="breadcrumb-item" data-path="/" onclick="loadFiles('/')">根目录</span>`;
     let currentPath = '';
 
     parts.forEach((part, index) => {
@@ -1832,20 +1863,10 @@ function renderBreadcrumb(path) {
 }
 
 function getFileIcon(filename) {
+    // 仅用于扩展名分类，图标由 renderFiles 中统一 SVG 展示
     const ext = filename.split('.').pop().toLowerCase();
-    const icons = {
-        'pdf': '📄', 'doc': '📝', 'docx': '📝', 'txt': '📝',
-        'xls': '📊', 'xlsx': '📊', 'csv': '📊',
-        'ppt': '📽️', 'pptx': '📽️',
-        'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️', 'webp': '🖼️', 'svg': '🖼️',
-        'mp3': '🎵', 'wav': '🎵', 'flac': '🎵', 'aac': '🎵',
-        'mp4': '🎬', 'mkv': '🎬', 'avi': '🎬', 'mov': '🎬', 'wmv': '🎬',
-        'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦',
-        'exe': '⚙️', 'msi': '⚙️', 'bat': '⚙️', 'sh': '⚙️',
-        'js': '📜', 'ts': '📜', 'py': '📜', 'go': '📜', 'java': '📜',
-        'html': '🌐', 'css': '🎨', 'json': '📋', 'xml': '📋',
-    };
-    return icons[ext] || '📄';
+    const types = ['pdf','doc','docx','txt','xls','xlsx','csv','ppt','pptx','jpg','jpeg','png','gif','webp','svg','mp3','wav','flac','aac','mp4','mkv','avi','mov','wmv','zip','rar','7z','tar','gz','exe','msi','bat','sh','js','ts','py','go','java','html','css','json','xml'];
+    return types.includes(ext) ? ext : 'file';
 }
 
 function downloadFile(path) {
@@ -2198,7 +2219,7 @@ function renderDockerContainers(containers) {
     tbody.innerHTML = containers.map(c => {
         const isRunning = c.state === 'running';
         const statusClass = isRunning ? 'running' : 'stopped';
-        const statusDot = isRunning ? '🟢' : '🔴';
+        const statusDot = `<span class="docker-status-dot ${statusClass}" title="${isRunning ? '运行中' : '已停止'}"></span>`;
 
         return `
             <tr class="docker-row">
@@ -2224,6 +2245,8 @@ async function loadAppConfig() {
             document.getElementById('currentPort').textContent = config.port || '-';
             document.getElementById('appAutoStartToggle').checked = config.autoStart || false;
             document.getElementById('appAutoStartStatus').textContent = config.autoStart ? '已启用' : '未启用';
+            const versionEl = document.getElementById('currentAppVersion');
+            if (versionEl) versionEl.textContent = config.version ? 'v' + config.version : '-';
         }
     } catch (e) {
         console.log('加载应用配置失败');
@@ -2292,6 +2315,45 @@ document.getElementById('appAutoStartToggle').addEventListener('change', async (
     }
 });
 
+// 检查更新（供设置页按钮与自动检查调用）
+async function checkForUpdate(silent = false) {
+    try {
+        const response = await fetch('/api/update-check');
+        const data = await response.json();
+        if (data.hasUpdate) {
+            if (silent) {
+                showToast('发现新版本 ' + data.latestVersion + '，请到设置中检查更新', 'info');
+            } else {
+                const msg = `发现新版本 ${data.latestVersion}。${data.releaseNotes ? '\n' + data.releaseNotes : ''}`;
+                if (data.downloadUrl) {
+                    if (confirm(msg + '\n\n是否打开下载链接？')) {
+                        window.open(data.downloadUrl, '_blank');
+                    }
+                } else {
+                    showToast('发现新版本 ' + data.latestVersion, 'info');
+                }
+            }
+        } else {
+            if (!silent) showToast(data.currentVersion ? '当前已是最新版本（v' + data.currentVersion + '）' : '当前已是最新版本', 'success');
+        }
+        if (data.error && !silent) showToast('检查更新失败: ' + data.error, 'warning');
+        return data;
+    } catch (e) {
+        if (!silent) showToast('检查更新失败，请稍后再试', 'warning');
+        return { hasUpdate: false, error: String(e.message) };
+    }
+}
+
+document.getElementById('checkUpdateBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('checkUpdateBtn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = '检查中...';
+    await checkForUpdate(false);
+    btn.disabled = false;
+    btn.textContent = '检查更新';
+});
+
 // 重启应用
 document.getElementById('restartAppBtn').addEventListener('click', async () => {
     if (!confirm('确定要重启面板吗？应用将在1秒后重启。')) {
@@ -2323,7 +2385,7 @@ const logoWorkflow = {
     id: 'logo-painting',
     name: 'Logo绘画',
     description: '生成应用Logo图标',
-    icon: '🎨',
+    icon: '',
     workflow: {
         "1": {
             "inputs": {
@@ -2747,4 +2809,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             checkAllServiceProcesses();
         }
     }, 5000);
+
+    // 延迟自动检查更新（静默：仅在有新版本时提示）
+    setTimeout(() => checkForUpdate(true), 3000);
 });

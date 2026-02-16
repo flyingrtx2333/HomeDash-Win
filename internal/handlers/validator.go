@@ -99,8 +99,8 @@ func ValidateUserSettings(settings *UserSettings) error {
 	}
 
 	// 验证主题
-	if settings.Theme != "" && settings.Theme != "dark" && settings.Theme != "light" {
-		return fmt.Errorf("主题必须是 'dark' 或 'light'")
+	if settings.Theme != "" && settings.Theme != "dark" && settings.Theme != "light" && settings.Theme != "fresh" {
+		return fmt.Errorf("主题必须是 'dark'、'light' 或 'fresh'")
 	}
 
 	// 验证 WebDAV 根目录（如果提供）

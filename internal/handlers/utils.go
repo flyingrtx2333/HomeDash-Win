@@ -29,7 +29,6 @@ func GetWebDir() string {
 	return webDir
 }
 
-
 // SetWebdavRoot 设置WebDAV根目录
 func SetWebdavRoot(root string) {
 	webdavRoot = root

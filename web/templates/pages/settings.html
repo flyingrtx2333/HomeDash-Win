@@ -37,10 +37,20 @@
     </div>
   </div>
 
+  <!-- 检查更新 -->
+  <div class="settings-card">
+    <h3>检查更新</h3>
+    <p class="settings-desc">从更新服务器检查是否有新版本（服务器：http://127.0.0.1:8000）</p>
+    <div class="settings-status">
+      <span>当前版本：<strong id="currentAppVersion">-</strong></span>
+    </div>
+    <button class="btn-outline" id="checkUpdateBtn">检查更新</button>
+  </div>
+
   <!-- 应用重启 -->
   <div class="settings-card">
     <h3>重启面板</h3>
     <p class="settings-desc">重启应用以应用配置更改</p>
-    <button class="btn-outline" id="restartAppBtn">🔄 重启面板</button>
+    <button class="btn-outline" id="restartAppBtn">重启面板</button>
   </div>
 {{end}}

@@ -160,6 +160,10 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 		// 应用重启
 		api.POST("/app/restart", handlers.RestartApplication)
 
+		// 版本与更新检查
+		api.GET("/version", handlers.GetAppVersion)
+		api.GET("/update-check", handlers.CheckUpdate)
+
 		// Favicon 和图标
 		api.GET("/favicon", handlers.GetFavicon)
 		api.POST("/upload-icon", handlers.UploadIcon)

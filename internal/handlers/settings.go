@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"crypto/md5"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,9 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/sys/windows/registry"
 )
+
+// 更新检查服务器默认地址
+const defaultUpdateServerBase = "http://127.0.0.1:8000/homedashwin"
 
 // GetBackgrounds 获取背景图列表
 func GetBackgrounds(c *gin.Context) {
@@ -123,8 +127,59 @@ func GetAppConfig(c *gin.Context, port string) {
 	config := AppConfig{
 		Port:      port,
 		AutoStart: isAppAutoStartEnabled(),
+		Version:   AppVersion,
 	}
 	c.JSON(200, config)
+}
+
+// GetAppVersion 返回当前应用版本号
+func GetAppVersion(c *gin.Context) {
+	c.JSON(200, gin.H{"version": AppVersion})
+}
+
+// CheckUpdate 向更新服务器请求检查是否有新版本，并返回结果给前端
+func CheckUpdate(c *gin.Context) {
+	baseURL := strings.TrimSuffix(defaultUpdateServerBase, "/")
+	url := fmt.Sprintf("%s/api/update/check?version=%s", baseURL, AppVersion)
+
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		c.JSON(200, gin.H{
+			"hasUpdate":      false,
+			"error":          "无法连接更新服务器",
+			"currentVersion": AppVersion,
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(200, gin.H{
+			"hasUpdate":      false,
+			"error":          fmt.Sprintf("更新服务器返回 %d", resp.StatusCode),
+			"currentVersion": AppVersion,
+		})
+		return
+	}
+
+	var result UpdateCheckResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.JSON(200, gin.H{
+			"hasUpdate":      false,
+			"error":          "解析更新信息失败",
+			"currentVersion": AppVersion,
+		})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"hasUpdate":      result.HasUpdate,
+		"latestVersion":  result.LatestVersion,
+		"downloadUrl":    result.DownloadURL,
+		"releaseNotes":   result.ReleaseNotes,
+		"currentVersion": AppVersion,
+	})
 }
 
 // UpdateAppConfig 更新应用配置
@@ -274,12 +329,12 @@ func UploadIcon(c *gin.Context) {
 	// 验证文件内容类型
 	contentType := http.DetectContentType(buffer)
 	validTypes := map[string]bool{
-		"image/png":      true,
-		"image/jpeg":     true,
-		"image/gif":      true,
-		"image/webp":     true,
-		"image/x-icon":   true,
-		"image/svg+xml":  true,
+		"image/png":                true,
+		"image/jpeg":               true,
+		"image/gif":                true,
+		"image/webp":               true,
+		"image/x-icon":             true,
+		"image/svg+xml":            true,
 		"application/octet-stream": true, // 某些 .ico 文件可能被识别为此类型
 	}
 

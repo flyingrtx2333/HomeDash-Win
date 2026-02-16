@@ -1,0 +1,115 @@
+/* ========== 清新唯美主题 (data-theme="fresh") ========== */
+[data-theme="fresh"] {
+  --bg-overlay-start: rgba(240, 253, 250, 0.82);
+  --bg-overlay-mid: rgba(204, 251, 241, 0.75);
+  --bg-overlay-end: rgba(167, 243, 208, 0.78);
+  --sidebar-bg: rgba(255, 255, 255, 0.65);
+  --card-bg: rgba(255, 255, 255, 0.78);
+  --card-bg-hover: rgba(255, 255, 255, 0.92);
+  --card-border: rgba(45, 212, 191, 0.22);
+  --text-primary: #134e4a;
+  --text-secondary: #0f766e;
+  --text-muted: rgba(15, 118, 110, 0.7);
+  --input-bg: rgba(255, 255, 255, 0.9);
+  --input-border: rgba(45, 212, 191, 0.35);
+  --primary-color: #0d9488;
+  --card-shadow: 0 4px 24px rgba(13, 148, 136, 0.08);
+  --card-shadow-hover: 0 8px 32px rgba(13, 148, 136, 0.12);
+}
+
+[data-theme="fresh"] .sidebar {
+  border-right-color: rgba(45, 212, 191, 0.2);
+  box-shadow: 8px 0 32px rgba(13, 148, 136, 0.06);
+}
+
+[data-theme="fresh"] .theme-option[data-theme="fresh"] {
+  background: rgba(45, 212, 191, 0.25);
+  border-color: rgba(13, 148, 136, 0.4);
+  color: #0f766e;
+}
+
+/* 服务器 IP 标签在清新唯美下使用深色文字 */
+[data-theme="fresh"] .ip-input-container label,
+[data-theme="fresh"] .top-bar .ip-input-container label {
+  color: #0f766e;
+}
+
+/* 侧栏导航：清新唯美下 hover 时颜色变深 */
+[data-theme="fresh"] .nav-section-label {
+  color: rgba(15, 118, 110, 0.85);
+}
+
+[data-theme="fresh"] .nav-item {
+  color: #0f766e;
+}
+
+[data-theme="fresh"] .nav-item:hover {
+  background: rgba(45, 212, 191, 0.15);
+  color: #134e4a;
+}
+
+[data-theme="fresh"] .nav-item.active {
+  background: #0d9488;
+  color: #fff;
+}
+
+/* ========== 浅色 / 清新 下 btn-outline 与 stat-mini 适配 ========== */
+[data-theme="light"] .btn-outline,
+[data-theme="fresh"] .btn-outline {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  color: #334155;
+}
+[data-theme="light"] .btn-outline:hover,
+[data-theme="fresh"] .btn-outline:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(15, 23, 42, 0.3);
+  color: #1e293b;
+}
+[data-theme="light"] .btn-outline:disabled,
+[data-theme="fresh"] .btn-outline:disabled {
+  color: #94a3b8;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+[data-theme="light"] .stat-mini,
+[data-theme="fresh"] .stat-mini {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-secondary);
+}
+[data-theme="light"] .stat-mini:hover,
+[data-theme="fresh"] .stat-mini:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .stat-mini .stat-value,
+[data-theme="fresh"] .stat-mini .stat-value {
+  color: var(--text-primary);
+}
+/* 浅色下顶部栏 stat 图标加深，保证可见 */
+[data-theme="light"] .stat-mini .stat-icon img,
+[data-theme="light"] .stat-mini img.stat-icon {
+  filter: brightness(0) saturate(100%) invert(25%) sepia(20%) saturate(800%) hue-rotate(200deg);
+}
+/* 清新主题下 stat 图标使用 teal 系（与现有 filter 保持一致） */
+[data-theme="fresh"] .stat-mini .stat-icon img,
+[data-theme="fresh"] .stat-mini img.stat-icon {
+  filter: brightness(0) saturate(100%) invert(28%) sepia(25%) saturate(1200%) hue-rotate(140deg);
+}
+
+/* 浅色/清新下进程表格滚动条 */
+[data-theme="light"] .process-table-container .table-body::-webkit-scrollbar-track,
+[data-theme="fresh"] .process-table-container .table-body::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.06);
+}
+[data-theme="light"] .process-table-container .table-body::-webkit-scrollbar-thumb,
+[data-theme="fresh"] .process-table-container .table-body::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.2);
+}
+[data-theme="light"] .process-table-container .table-body::-webkit-scrollbar-thumb:hover,
+[data-theme="fresh"] .process-table-container .table-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.32);
+}
+[data-theme="light"] .process-table-container .table-body,
+[data-theme="fresh"] .process-table-container .table-body {
+  scrollbar-color: rgba(15, 23, 42, 0.22) rgba(15, 23, 42, 0.06);
+}

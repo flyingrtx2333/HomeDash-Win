@@ -11,7 +11,7 @@ type BackgroundInfo struct {
 type UserSettings struct {
 	ServerIP         string `json:"serverIp"`
 	BackgroundURL    string `json:"backgroundUrl"`
-	Theme            string `json:"theme"`            // "dark" | "light"
+	Theme            string `json:"theme"`            // "dark" | "light" | "fresh"
 	WebdavRoot       string `json:"webdavRoot"`       // WebDAV 挂载根目录
 	ComfyUIServerURL string `json:"comfyuiServerUrl"` // ComfyUI服务器地址
 }
@@ -36,6 +36,7 @@ type ServiceCard struct {
 type AppConfig struct {
 	Port      string `json:"port"`      // 应用端口
 	AutoStart bool   `json:"autoStart"` // 是否开机自启
+	Version   string `json:"version"`   // 当前应用版本
 }
 
 // PingResult 连通性检测结果
@@ -79,4 +80,15 @@ type DockerImage struct {
 type ProcessStatus struct {
 	Running bool  `json:"running"`
 	PID     int32 `json:"pid"`
+}
+
+// AppVersion 当前应用版本号（与 release 保持一致）
+const AppVersion = "0.3.1"
+
+// UpdateCheckResponse 更新检查接口返回（与更新服务器约定一致）
+type UpdateCheckResponse struct {
+	HasUpdate     bool   `json:"hasUpdate"`
+	LatestVersion string `json:"latestVersion,omitempty"`
+	DownloadURL   string `json:"downloadUrl,omitempty"`
+	ReleaseNotes  string `json:"releaseNotes,omitempty"`
 }

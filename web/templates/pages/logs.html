@@ -1,7 +1,7 @@
 {{define "pages/logs"}}
 <div class="page-container">
   <div class="page-header">
-    <h1 class="page-title">📋 日志查看器</h1>
+    <h1 class="page-title">日志查看器</h1>
     <p class="page-subtitle">查看各服务的运行日志</p>
   </div>
 
@@ -36,13 +36,13 @@
         </div>
         <div class="filter-actions">
           <button class="btn btn-primary" onclick="loadLogs()">
-            <span class="btn-icon">🔄</span>刷新
+            刷新
           </button>
           <button class="btn btn-secondary" onclick="autoRefresh()">
-            <span class="btn-icon">▶️</span>自动刷新
+            <span class="btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>自动刷新
           </button>
           <button class="btn btn-danger" onclick="clearLogs()">
-            <span class="btn-icon">🗑️</span>清空
+            清空
           </button>
         </div>
       </div>
