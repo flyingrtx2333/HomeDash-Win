@@ -8,7 +8,7 @@
 </div>
 
 <!-- 状态卡片 -->
-<div class="settings-card frpc-status-card">
+<div class="settings-card frpc-status-card frpc-compact">
   <h3>运行状态</h3>
   <p class="settings-desc">FRP 客户端用于将内网服务暴露到公网</p>
   <div class="frpc-status-row">
@@ -18,30 +18,22 @@
       <span class="frpc-pid" id="frpcPidText"></span>
     </div>
     <div class="frpc-actions">
-      <button type="button" class="btn-outline" id="frpcStartBtn">▶ 启动</button>
-      <button type="button" class="btn-outline btn-danger" id="frpcStopBtn">⏹ 停止</button>
+      <button type="button" class="btn-outline btn-sm" id="frpcStartBtn">▶ 启动</button>
+      <button type="button" class="btn-outline btn-sm btn-danger" id="frpcStopBtn">⏹ 停止</button>
     </div>
   </div>
-</div>
-
-<!-- 开机自启 -->
-<div class="settings-card">
-  <h3>开机自启</h3>
-  <p class="settings-desc">系统启动时自动运行 frpc 客户端</p>
-  <div class="settings-toggle-group">
-    <label>启用开机自启</label>
+  <div class="frpc-autostart-row">
+    <span class="frpc-autostart-label">开机自启</span>
     <label class="toggle-switch">
       <input type="checkbox" id="frpcAutoStartToggle" />
       <span class="toggle-slider"></span>
     </label>
-  </div>
-  <div class="settings-status">
-    <span>当前状态：<strong id="frpcAutoStartStatus">-</strong></span>
+    <span class="frpc-autostart-status" id="frpcAutoStartStatus">-</span>
   </div>
 </div>
 
 <!-- 配置编辑 -->
-<div class="settings-card">
+<div class="settings-card frpc-compact">
   <h3>配置参数 (frpc.toml)</h3>
   <p class="settings-desc">修改配置后需重启 frpc 生效</p>
 

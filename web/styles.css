@@ -535,14 +535,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-img.card-icon {
-  background: rgba(255, 255, 255, 0.95);
-  padding: 5px;
 }
 
 .card-disabled {
@@ -4400,4 +4392,154 @@ textarea.form-control {
   display: grid;
   grid-template-columns: 1fr 100px;
   gap: 12px;
+}
+
+/* FRPC 页面紧凑样式：缩小元素、间距、字体 */
+.frpc-compact.settings-card {
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.frpc-compact.settings-card h3 {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.frpc-compact .settings-desc {
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+
+.frpc-autostart-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--input-border);
+}
+
+.frpc-autostart-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.frpc-autostart-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.frpc-compact .frpc-status-row {
+  gap: 10px;
+}
+
+.frpc-compact .frpc-status-info {
+  font-size: 12px;
+}
+
+.frpc-compact .frpc-pid {
+  font-size: 11px;
+}
+
+.frpc-compact .frpc-actions {
+  gap: 6px;
+}
+
+.frpc-compact .frpc-mode-toggle {
+  margin-bottom: 10px;
+}
+
+.frpc-compact .frpc-mode-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.frpc-compact .form-group label {
+  font-size: 11px;
+}
+
+.frpc-compact .form-group input,
+.frpc-compact .form-group select {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.frpc-compact .form-group {
+  margin-bottom: 10px;
+}
+
+.frpc-compact .frpc-simple-form .frpc-form-row {
+  gap: 10px;
+}
+
+.frpc-compact .frpc-proxies-section {
+  margin: 12px 0 10px;
+}
+
+.frpc-compact .frpc-proxies-header {
+  margin-bottom: 8px;
+}
+
+.frpc-compact .frpc-proxies-header label {
+  font-size: 11px;
+}
+
+.frpc-compact .frpc-proxy-list {
+  gap: 6px;
+  max-height: 160px;
+}
+
+.frpc-compact .frpc-proxy-item {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.frpc-compact .frpc-proxy-item-info span {
+  font-size: 11px;
+}
+
+.frpc-compact .frpc-proxy-empty {
+  padding: 10px;
+  font-size: 11px;
+}
+
+.frpc-compact .frpc-config-editor {
+  gap: 8px;
+}
+
+.frpc-compact .frpc-config-editor textarea {
+  font-size: 11px;
+  padding: 8px;
+  min-height: 200px;
+}
+
+.frpc-compact .btn-outline {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+#page-frpc .section-header h2 {
+  font-size: 18px;
+}
+
+#page-frpc .frpc-proxy-modal .modal-header h3 {
+  font-size: 14px;
+}
+
+#page-frpc .frpc-proxy-modal .modal-body {
+  padding: 0 16px 12px;
+}
+
+#page-frpc .frpc-proxy-modal .form-group {
+  margin-bottom: 8px;
+}
+
+#page-frpc .frpc-proxy-modal .form-group label {
+  font-size: 11px;
+}
+
+#page-frpc .frpc-proxy-modal .form-control {
+  font-size: 12px;
+  padding: 6px 10px;
 }

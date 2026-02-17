@@ -27,10 +27,10 @@ type FrpcProxy struct {
 
 // FrpcConfigParsed 解析后的 frpc 配置（用于简单模式）
 type FrpcConfigParsed struct {
-	ServerAddr string       `toml:"serverAddr" json:"serverAddr"`
-	ServerPort int          `toml:"serverPort" json:"serverPort"`
-	Auth       FrpcAuth     `toml:"auth" json:"auth"`
-	Proxies    []FrpcProxy  `toml:"proxies" json:"proxies"`
+	ServerAddr string      `toml:"serverAddr" json:"serverAddr"`
+	ServerPort int         `toml:"serverPort" json:"serverPort"`
+	Auth       FrpcAuth    `toml:"auth" json:"auth"`
+	Proxies    []FrpcProxy `toml:"proxies" json:"proxies"`
 }
 
 // FrpcAuth auth 配置
@@ -43,24 +43,13 @@ const frpcAutoStartName = "HomeDash-Frpc"
 const createNoWindow = 0x08000000 // CREATE_NO_WINDOW
 
 // getFrpcPaths 获取 frpc.exe 和 frpc.toml 路径
-// 优先使用可执行文件同目录，若无 frpc.exe 则回退到当前工作目录
+// 使用当前工作目录的web
 func getFrpcPaths() (exePath, tomlPath string, err error) {
 	exeDir := "."
-	if mainExe, e := os.Executable(); e == nil {
-		dir := filepath.Dir(mainExe)
-		candidate := filepath.Join(dir, "frpc.exe")
-		if _, statErr := os.Stat(candidate); statErr == nil {
-			exeDir = dir
-			log.Printf("[FRPC] 使用可执行文件同目录: %s", dir)
-		} else {
-			log.Printf("[FRPC] 可执行文件目录无 frpc.exe: %s, statErr=%v", candidate, statErr)
-		}
-	}
-	if exeDir == "." {
-		if wd, e := os.Getwd(); e == nil {
-			exeDir = wd
-			log.Printf("[FRPC] 回退到工作目录: %s", wd)
-		}
+	if wd, e := os.Getwd(); e == nil {
+		exeDir = wd
+		exeDir = filepath.Join(exeDir, "web")
+		log.Printf("[FRPC] 使用工作目录: %s", wd)
 	}
 
 	exePath = filepath.Join(exeDir, "frpc.exe")
@@ -130,11 +119,11 @@ func GetFrpcConfigParsed(c *gin.Context) {
 // 支持两种格式：1) config 原始 toml 字符串（专业模式） 2) serverAddr/serverPort/token/proxies 结构化（简单模式）
 func UpdateFrpcConfig(c *gin.Context) {
 	var rawReq struct {
-		Config      string       `json:"config"`
-		ServerAddr  string       `json:"serverAddr"`
-		ServerPort  int          `json:"serverPort"`
-		Token       string       `json:"token"`
-		Proxies     []FrpcProxy  `json:"proxies"`
+		Config     string      `json:"config"`
+		ServerAddr string      `json:"serverAddr"`
+		ServerPort int         `json:"serverPort"`
+		Token      string      `json:"token"`
+		Proxies    []FrpcProxy `json:"proxies"`
 	}
 	if err := c.ShouldBindJSON(&rawReq); err != nil {
 		c.JSON(400, gin.H{"error": "无效的请求数据"})

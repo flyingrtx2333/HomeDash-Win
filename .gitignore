@@ -12,3 +12,4 @@ release
 PROJECTRULE.md
 *.toml
 *.syso
+release.ps1
