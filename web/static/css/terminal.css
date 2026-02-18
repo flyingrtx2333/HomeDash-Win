@@ -1,0 +1,250 @@
+/* ========== SSH 终端页面样式 ========== */
+.terminal-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.terminal-status .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #94a3b8;
+}
+
+.terminal-status .status-dot.connected {
+    background: #34d399;
+    animation: pulse 2s infinite;
+}
+
+.terminal-status .status-dot.error {
+    background: #ef4444;
+}
+
+.terminal-container {
+    background: #1a1b26;
+    border-radius: 12px;
+    border: 1px solid var(--card-border);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.terminal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: #16161e;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.terminal-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #787c99;
+}
+
+.terminal-dots {
+    display: flex;
+    gap: 6px;
+}
+
+.terminal-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.terminal-dot.red {
+    background: #ff5f57;
+}
+
+.terminal-dot.yellow {
+    background: #febc2e;
+}
+
+.terminal-dot.green {
+    background: #28c840;
+}
+
+.terminal-wrapper {
+    position: relative;
+    width: 100%;
+    height: 70vh;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;          /* 轻微圆角 */
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); /* 可选：加点阴影 */
+}
+
+.terminal-wrapper::-webkit-scrollbar {
+    width: 8px;
+}
+
+.terminal-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.terminal-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+.terminal-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.terminal-line {
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+    padding: 1px 0;
+}
+
+.terminal-line .text-red {
+    color: #f7768e;
+}
+
+.terminal-line .text-green {
+    color: #9ece6a;
+}
+
+.terminal-line .text-yellow {
+    color: #e0af68;
+}
+
+.terminal-line .text-blue {
+    color: #7aa2f7;
+}
+
+.terminal-line .text-cyan {
+    color: #7dcfff;
+}
+
+.terminal-line .text-magenta {
+    color: #bb9af7;
+}
+
+.terminal-input-line {
+    display: flex;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.terminal-prompt {
+    color: #9ece6a;
+    margin-right: 8px;
+    user-select: none;
+}
+
+.terminal-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #a9b1d6;
+    font-family: inherit;
+    font-size: inherit;
+    caret-color: #7aa2f7;
+}
+
+.terminal-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: #7aa2f7;
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    .terminal-container {
+        height: 300px;
+    }
+}
+
+/* xterm 核心容器 - 加内边距 */
+.xterm {
+    padding: 12px 16px !important;   /* 左右 16px，上下 12px，看起来更舒服 */
+    box-sizing: border-box;
+  }
+
+  /* 视口（滚动区域） */
+  .xterm-viewport {
+    background: #1e1e1e !important;  /* 确保背景一致 */
+    overflow-y: auto !important;     /* 强制显示滚动条（当内容超长时） */
+  }
+
+  /* 美化滚动条（Chrome/Edge 等 Webkit 内核） */
+  .xterm-viewport::-webkit-scrollbar {
+    width: 10px;                    /* 滚动条宽度 */
+  }
+
+  .xterm-viewport::-webkit-scrollbar-track {
+    background: #2d2d2d;            /* 轨道颜色（深灰） */
+    border-radius: 5px;
+  }
+
+  .xterm-viewport::-webkit-scrollbar-thumb {
+    background: #555;               /* 拖动条颜色 */
+    border-radius: 5px;
+    border: 2px solid #2d2d2d;     /* 加点内边框，避免贴边 */
+  }
+
+  .xterm-viewport::-webkit-scrollbar-thumb:hover {
+    background: #777;               /* hover 时亮一点 */
+  }
+
+  /* Firefox 滚动条（需要单独设置） */
+  .xterm-viewport {
+    scrollbar-width: thin;
+    scrollbar-color: #555 #2d2d2d;
+  }
+
+  /* 行内容（可选：行间距稍大一点，更易读） */
+  .xterm-rows {
+    line-height: 1.4 !important;    /* 默认是 1.2~1.3，调大一点更舒适 */
+  }
+
+  /* 终端标题栏（你加的那个小圆点 + 标题） */
+  .terminal-header {
+    background: #2d2d2d;
+    padding: 8px 12px;
+    border-bottom: 1px solid #444;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #aaa;
+  }
+
+  .terminal-dots {
+    display: flex;
+    gap: 8px;
+  }
+
+  .terminal-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .red    { background: #ff5f56; }
+  .yellow { background: #ffbd2e; }
+  .green  { background: #28c940; }

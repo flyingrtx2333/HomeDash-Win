@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"fmt"
+	"homedash/internal/ui"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -222,7 +222,7 @@ func StartFrpc(c *gin.Context) {
 		return
 	}
 
-	cmd := exec.Command(exePath, "-c", tomlPath)
+	cmd := ui.HideWindow(exePath, "-c", tomlPath)
 	cmd.Dir = filepath.Dir(exePath)
 	if runtime.GOOS == "windows" {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -259,9 +259,9 @@ func StopFrpc(c *gin.Context) {
 
 func stopFrpcProcess(pid int32) error {
 	if runtime.GOOS == "windows" {
-		cmd := exec.Command("taskkill", "/PID", fmt.Sprintf("%d", pid))
+		cmd := ui.HideWindow("taskkill", "/PID", fmt.Sprintf("%d", pid))
 		if err := cmd.Run(); err != nil {
-			cmd = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
+			cmd = ui.HideWindow("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
 			return cmd.Run()
 		}
 		return nil
@@ -338,7 +338,7 @@ func UpdateFrpcAutoStart(c *gin.Context) {
 	if req.AutoStart {
 		if running, _ := checkFrpcProcess(); !running {
 			log.Printf("[FRPC] 启用后尝试立即启动 frpc")
-			cmd := exec.Command(exePath, "-c", tomlPath)
+			cmd := ui.HideWindow(exePath, "-c", tomlPath)
 			cmd.Dir = filepath.Dir(exePath)
 			cmd.SysProcAttr = &syscall.SysProcAttr{
 				HideWindow:    true,
@@ -405,7 +405,7 @@ func MaybeLaunchFrpcOnStartup() {
 		return
 	}
 
-	cmd := exec.Command(exePath, "-c", tomlPath)
+	cmd := ui.HideWindow(exePath, "-c", tomlPath)
 	cmd.Dir = filepath.Dir(exePath)
 	if runtime.GOOS == "windows" {
 		cmd.SysProcAttr = &syscall.SysProcAttr{

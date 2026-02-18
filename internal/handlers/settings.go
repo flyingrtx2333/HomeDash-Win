@@ -4,10 +4,10 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"homedash/internal/ui"
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -20,7 +20,7 @@ import (
 )
 
 // 更新检查服务器默认地址
-const defaultUpdateServerBase = "http://127.0.0.1:8000/homedashwin"
+const defaultUpdateServerBase = "http://1.14.58.29:58888/homedashwin"
 
 // GetBackgrounds 获取背景图列表
 func GetBackgrounds(c *gin.Context) {
@@ -30,7 +30,7 @@ func GetBackgrounds(c *gin.Context) {
 
 // getBackgroundList 获取背景图列表
 func getBackgroundList(webDir string) []BackgroundInfo {
-	bgDir := filepath.Join(webDir, "backgrounds")
+	bgDir := filepath.Join(webDir, "static", "backgrounds")
 	var backgrounds []BackgroundInfo
 
 	if _, err := os.Stat(bgDir); os.IsNotExist(err) {
@@ -585,14 +585,14 @@ func restartApplication() {
 
 	// Windows 上使用 cmd.exe 启动新进程
 	if runtime.GOOS == "windows" {
-		cmd := exec.Command("cmd.exe", "/c", "start", "", absPath)
+		cmd := ui.HideWindow("cmd.exe", "/c", "start", "", absPath)
 		cmd.Dir = filepath.Dir(absPath)
 		if err := cmd.Start(); err != nil {
 			return
 		}
 	} else {
 		// Linux/Mac 上直接执行
-		cmd := exec.Command(absPath)
+		cmd := ui.HideWindow(absPath)
 		cmd.Dir = filepath.Dir(absPath)
 		if err := cmd.Start(); err != nil {
 			return

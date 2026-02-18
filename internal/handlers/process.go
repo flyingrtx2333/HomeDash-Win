@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"fmt"
-	"os/exec"
+	"homedash/internal/ui"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -58,7 +58,7 @@ func launchService(launchCmd string) error {
 
 	// 直接执行，不要嵌套 cmd.exe /c start
 	// 第一个元素是程序名，后面的解构为参数
-	cmd := exec.Command(parts[0], parts[1:]...)
+	cmd := ui.HideWindow(parts[0], parts[1:]...)
 	err := cmd.Start()
 	if err != nil {
 		return err
@@ -215,7 +215,7 @@ func checkServiceProcess(processName, launchPath, launchCommand string) ProcessS
 func stopServiceProcess(pid int32) error {
 	if runtime.GOOS == "windows" {
 		// 先尝试优雅关闭
-		cmd := exec.Command("taskkill", "/PID", fmt.Sprintf("%d", pid))
+		cmd := ui.HideWindow("taskkill", "/PID", fmt.Sprintf("%d", pid))
 		err := cmd.Run()
 		if err == nil {
 			// 等待进程退出（最多 5 秒）
@@ -229,7 +229,7 @@ func stopServiceProcess(pid int32) error {
 		}
 
 		// 如果优雅关闭失败或超时，强制终止
-		cmd = exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
+		cmd = ui.HideWindow("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
 		return cmd.Run()
 	} else {
 		// Linux/Mac 上使用 kill 命令

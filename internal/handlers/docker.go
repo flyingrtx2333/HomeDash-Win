@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"os/exec"
+	"homedash/internal/ui"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +23,7 @@ func GetDockerImages(c *gin.Context) {
 func getDockerContainers() []DockerContainer {
 	var containers []DockerContainer
 
-	cmd := exec.Command("docker", "ps", "-a", "--format", "{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.State}}|{{.Ports}}|{{.CreatedAt}}")
+	cmd := ui.HideWindow("docker", "ps", "-a", "--format", "{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.State}}|{{.Ports}}|{{.CreatedAt}}")
 	output, err := cmd.Output()
 	if err != nil {
 		return containers
@@ -60,7 +60,7 @@ func getDockerContainers() []DockerContainer {
 func getDockerImages() []DockerImage {
 	var images []DockerImage
 
-	cmd := exec.Command("docker", "images", "--format", "{{.ID}}|{{.Repository}}|{{.Tag}}|{{.Size}}|{{.CreatedAt}}")
+	cmd := ui.HideWindow("docker", "images", "--format", "{{.ID}}|{{.Repository}}|{{.Tag}}|{{.Size}}|{{.CreatedAt}}")
 	output, err := cmd.Output()
 	if err != nil {
 		return images

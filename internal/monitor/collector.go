@@ -3,8 +3,8 @@ package monitor
 import (
 	"context"
 	"fmt"
+	"homedash/internal/ui"
 	"os/exec"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,11 +37,11 @@ type NetworkStats struct {
 
 // CPUStats CPU 信息
 type CPUStats struct {
-	Usage       float64  `json:"usage"`       // 总使用率
-	CoreUsage   []float64 `json:"coreUsage"`  // 每核使用率
-	ModelName   string   `json:"modelName"`   // CPU 型号
-	Cores       int      `json:"cores"`       // 核心数
-	Temperature float64  `json:"temperature"` // 温度（如果可用）
+	Usage       float64   `json:"usage"`       // 总使用率
+	CoreUsage   []float64 `json:"coreUsage"`   // 每核使用率
+	ModelName   string    `json:"modelName"`   // CPU 型号
+	Cores       int       `json:"cores"`       // 核心数
+	Temperature float64   `json:"temperature"` // 温度（如果可用）
 }
 
 // MemoryStats 内存信息
@@ -228,7 +228,7 @@ func (c *Collector) collectGPU() GPUStats {
 	}
 
 	// 尝试使用 nvidia-smi 获取 NVIDIA GPU 信息
-	cmd := exec.Command("nvidia-smi",
+	cmd := ui.HideWindow("nvidia-smi",
 		"--query-gpu=name,utilization.gpu,memory.total,memory.used,temperature.gpu",
 		"--format=csv,noheader,nounits")
 
@@ -332,19 +332,6 @@ func FormatBytes(bytes uint64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-// 简化 GPU 名称的辅助函数
-func simplifyGPUName(name string) string {
-	// 移除常见的冗余前缀
-	name = strings.ReplaceAll(name, "NVIDIA ", "")
-	name = strings.ReplaceAll(name, "GeForce ", "")
-	
-	// 使用正则移除多余空格
-	re := regexp.MustCompile(`\s+`)
-	name = re.ReplaceAllString(name, " ")
-	
-	return strings.TrimSpace(name)
-}
-
 // GetTopProcesses 获取 CPU/内存占用最高的进程
 func GetTopProcesses(limit int) []ProcessInfo {
 	var processes []ProcessInfo
@@ -406,7 +393,7 @@ func GetCPUTemperature() float64 {
 
 	cmd := exec.CommandContext(ctx, "powershell", "-Command",
 		`Get-WmiObject MSAcpi_ThermalZoneTemperature -Namespace "root/wmi" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty CurrentTemperature`)
-
+	ui.HideWindow(cmd) // 传入已创建的 cmd 对象
 	output, err := cmd.Output()
 	if err != nil || ctx.Err() == context.DeadlineExceeded {
 		return 0 // 获取失败或超时

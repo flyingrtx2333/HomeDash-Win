@@ -16,5 +16,23 @@
     "enabled": false,
     "createdAt": 1771260437008,
     "updatedAt": 1771260473309
+  },
+  {
+    "id": "31a109e1",
+    "name": "FlyingrtxFast",
+    "path": "D:\\FTP\\FlyingrtxFast",
+    "domain": "",
+    "port": 58888,
+    "pythonPath": "",
+    "venvPath": "D:\\FTP\\FlyingrtxFast\\.venv",
+    "framework": "fastapi",
+    "startCommand": "python app.py",
+    "workingDir": "D:\\FTP\\FlyingrtxFast",
+    "requirementsTxt": "D:\\FTP\\FlyingrtxFast\\requirements.txt",
+    "environmentVars": {},
+    "autoStart": false,
+    "enabled": true,
+    "createdAt": 1771316564032,
+    "updatedAt": 1771316564032
   }
 ]

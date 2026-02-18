@@ -1,8 +1,8 @@
-# 🖥️ HomeDash Win V0.3.1
+# 🖥️ HomeDash Win
 
 > 轻量级 Windows 家庭服务器看板
 
-## 🆕 更新日志 (V0.3.1)
+## 🆕 更新日志 (V0.4.1)
 
 ### 新增功能
 - ✅ **OpenClaw 服务入口** - 内置 OpenClaw (端口18789) 服务模板
@@ -13,7 +13,7 @@
 ### 功能特性
 
 HomeDash Win 是一个专为 Windows 家庭服务器设计的综合看板工具，提供**服务入口管理**、**实时系统监控**、**文件管理**、**Web 终端**和 **Docker 管理**等功能，让你轻松管理家庭服务器上的所有服务。
-![HomeDash 界面预览](assets/index-optimized.png)
+![HomeDash 首页](assets/index.png)
 
 
 ---
@@ -56,22 +56,23 @@ HomeDash Win 是一个专为 Windows 家庭服务器设计的综合看板工具�
 ## 📸 界面预览
 
 ### 首页服务入口
-![HomeDash 首页](assets/index-optimized.png)
+
 
 ### 监控页面
 ![HomeDash 监控页面](assets/monitor.png)
 
-### 进程管理
-![HomeDash 进程管理](assets/process.png)
-
 ### SSH 终端
 ![HomeDash SSH 终端](assets/ssh.png)
+
+### Docker查看
+![HomeDash Docker页面](assets/docker.png)
 ---
 
 ## 🚀 快速开始
 
 在release中下载最新版本exe直接运行即可
 
+或者对于对源码感兴趣的童鞋：
 ```powershell
 # 克隆项目
 git clone https://github.com/flyingrtx2333/HomeDash-Win.git
@@ -84,7 +85,8 @@ go mod tidy
 go run ./cmd/homepage
 
 # 或编译后运行
-go build -o homedash.exe ./cmd/homepage
+go-winres make --in winres/winres.json --out cmd/homedash/rsrc
+go build -ldflags "-H windowsgui -s -w" ./cmd/homedash/
 ./homedash.exe
 ```
 
@@ -99,14 +101,6 @@ $env:PORT="8080"; ./homedash.exe
 ```
 
 ## ⚙️ 配置说明
-
-### 连通性检测规则
-
-| 状态 | 延迟 | 显示 |
-|------|------|------|
-| ✓ 正常 | < 200ms | 绿色 |
-| ⚠ 延迟 | 200-1000ms | 黄色 |
-| ✗ 错误 | > 1000ms 或连接失败 | 红色 |
 
 ### 服务配置 (services.json)
 
@@ -173,15 +167,6 @@ WebDAV 访问地址：`http://localhost:29678/webdav/`
 
 ## 💡 使用技巧
 
-### WebDAV 挂载
-
-1. 在「文件管理」页面设置挂载目录
-2. 复制 WebDAV 地址（格式：`http://服务器IP:29678/webdav/`）
-3. 在 Windows 资源管理器中：
-   - 右键「此电脑」→「添加网络位置」
-   - 输入 WebDAV 地址
-   - 完成挂载
-
 ### 主题切换
 
 点击右下角设置按钮，可切换深色/浅色主题，所有页面自动适配。
@@ -193,14 +178,6 @@ WebDAV 访问地址：`http://localhost:29678/webdav/`
 3. 配置「进程名」：用于进程检测（例如：`alist.exe`）
 4. 启用「开机自启」：系统启动时自动运行该服务
 5. 保存后，服务卡片会显示「启动」或「停止」按钮
-
-### AI绘画（ComfyUI）
-
-1. 在「AI绘画」页面，点击右上角「⚙️」按钮配置 ComfyUI 服务器地址
-2. 配置完成后，点击「🔗」测试连接
-3. 选择工作流卡片，点击「执行」按钮
-4. 填写工作流参数（提示词、采样步数、图像尺寸等）
-5. 执行后可在弹窗中查看进度和生成结果
 
 ### 图标自定义
 
@@ -233,11 +210,6 @@ WebDAV 访问地址：`http://localhost:29678/webdav/`
 - **Docker**：Docker CLI
 
 ---
-
-## TODO
- - 下载功能
- - 日志功能 ✅ (V0.3.1已添加)
- - github.com/docker/docker/client
  
 
 ## 📜 许可证

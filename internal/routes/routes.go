@@ -54,7 +54,7 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 	})
 
 	// 静态文件服务
-	router.StaticFS("/static", http.Dir(webDir))
+	router.StaticFS("/static", http.Dir(webDir+"/static"))
 
 	// ========== 首页服务入口 ==========
 	api := router.Group("/api")

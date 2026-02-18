@@ -3,6 +3,7 @@ package handlers
 import (
 	"bufio"
 	"fmt"
+	"homedash/internal/ui"
 	"io"
 	"log"
 	"net"
@@ -25,9 +26,9 @@ import (
 
 var (
 	websiteProcesses = make(map[string]*exec.Cmd) // 存储运行中的项目进程
-	websiteProcessMu sync.RWMutex                  // 保护websiteProcesses的互斥锁
+	websiteProcessMu sync.RWMutex                 // 保护websiteProcesses的互斥锁
 	websiteLogFiles  = make(map[string]*os.File)  // 存储日志文件句柄
-	websiteLogMu     sync.RWMutex                  // 保护websiteLogFiles的互斥锁
+	websiteLogMu     sync.RWMutex                 // 保护websiteLogFiles的互斥锁
 )
 
 // GetWebsites 获取所有网站项目列表
@@ -78,12 +79,6 @@ func CreateWebsite(c *gin.Context) {
 	if website.WorkingDir == "" {
 		website.WorkingDir = website.Path
 	}
-	if website.VenvPath == "" && website.Path != "" {
-		website.VenvPath = filepath.Join(website.Path, "venv")
-	}
-	if website.RequirementsTxt == "" && website.Path != "" {
-		website.RequirementsTxt = filepath.Join(website.Path, "requirements.txt")
-	}
 
 	websites := loadWebsites()
 	websites = append(websites, website)
@@ -115,6 +110,9 @@ func UpdateWebsite(c *gin.Context) {
 	found := false
 	for i, w := range websites {
 		if w.ID == id {
+			// 保留不在表单里编辑的字段（避免被零值覆盖）
+			prev := websites[i]
+
 			updated.ID = id
 			updated.CreatedAt = w.CreatedAt
 			updated.UpdatedAt = time.Now().UnixMilli()
@@ -123,15 +121,27 @@ func UpdateWebsite(c *gin.Context) {
 			if updated.EnvironmentVars == nil {
 				updated.EnvironmentVars = make(map[string]string)
 			}
-			if updated.WorkingDir == "" {
-				updated.WorkingDir = updated.Path
+			// 工作目录：优先用用户提交的，否则沿用旧值，再否则=项目路径
+			if strings.TrimSpace(updated.WorkingDir) == "" {
+				if strings.TrimSpace(prev.WorkingDir) != "" {
+					updated.WorkingDir = prev.WorkingDir
+				} else {
+					updated.WorkingDir = updated.Path
+				}
 			}
-			if updated.VenvPath == "" && updated.Path != "" {
-				updated.VenvPath = filepath.Join(updated.Path, "venv")
+
+			// 保留旧字段
+			if strings.TrimSpace(updated.Domain) == "" {
+				updated.Domain = prev.Domain
 			}
-			if updated.RequirementsTxt == "" && updated.Path != "" {
-				updated.RequirementsTxt = filepath.Join(updated.Path, "requirements.txt")
+			// VenvPath 由编辑表单提交，允许为空（清空）或修正为项目路径/.venv
+			if strings.TrimSpace(updated.PythonPath) == "" {
+				updated.PythonPath = prev.PythonPath
 			}
+			if strings.TrimSpace(updated.RequirementsTxt) == "" {
+				updated.RequirementsTxt = prev.RequirementsTxt
+			}
+			updated.Enabled = prev.Enabled
 
 			websites[i] = updated
 			found = true
@@ -185,7 +195,6 @@ func DeleteWebsite(c *gin.Context) {
 }
 
 // ValidateWebsiteConfig 验证网站项目配置
-// Python路径与虚拟环境路径二选一必填：有虚拟环境则不需要 Python 路径，否则需要 Python 路径
 func ValidateWebsiteConfig(website *PythonWebsite) error {
 	if website.Name == "" {
 		return fmt.Errorf("项目名称不能为空")
@@ -198,32 +207,6 @@ func ValidateWebsiteConfig(website *PythonWebsite) error {
 	}
 	if website.StartCommand == "" {
 		return fmt.Errorf("启动命令不能为空")
-	}
-
-	// Python路径与虚拟环境二选一必填
-	if website.VenvPath == "" && website.PythonPath == "" {
-		return fmt.Errorf("请填写 Python 路径或虚拟环境路径（二选一）")
-	}
-
-	// 若有虚拟环境，校验虚拟环境路径存在且有效
-	if website.VenvPath != "" {
-		if _, err := os.Stat(website.VenvPath); os.IsNotExist(err) {
-			return fmt.Errorf("虚拟环境路径不存在: %s", website.VenvPath)
-		}
-		var pythonInVenv string
-		if runtime.GOOS == "windows" {
-			pythonInVenv = filepath.Join(website.VenvPath, "Scripts", "python.exe")
-		} else {
-			pythonInVenv = filepath.Join(website.VenvPath, "bin", "python")
-		}
-		if _, err := os.Stat(pythonInVenv); os.IsNotExist(err) {
-			return fmt.Errorf("虚拟环境中未找到 Python: %s", website.VenvPath)
-		}
-	} else {
-		// 没有虚拟环境时，Python 路径必填且必须存在
-		if _, err := os.Stat(website.PythonPath); os.IsNotExist(err) {
-			return fmt.Errorf("Python可执行文件不存在: %s", website.PythonPath)
-		}
 	}
 
 	// 检查端口是否可用
@@ -257,7 +240,7 @@ func detectPythonVersions() []PythonVersion {
 
 	if runtime.GOOS == "windows" {
 		// Windows: 使用 py launcher 检测
-		cmd := exec.Command("py", "-0")
+		cmd := ui.HideWindow("py", "-0")
 		output, err := cmd.Output()
 		if err == nil {
 			lines := strings.Split(string(output), "\n")
@@ -395,7 +378,7 @@ func detectPythonVersions() []PythonVersion {
 
 // getPythonVersion 获取Python版本号
 func getPythonVersion(pythonPath string) string {
-	cmd := exec.Command(pythonPath, "--version")
+	cmd := ui.HideWindow(pythonPath, "--version")
 	output, err := cmd.Output()
 	if err != nil {
 		return ""
@@ -426,19 +409,26 @@ func CreateVenv(c *gin.Context) {
 		return
 	}
 
-	// 创建虚拟环境必须指定 Python 路径
-	if website.PythonPath == "" {
-		c.JSON(400, gin.H{"error": "创建虚拟环境需要先指定 Python 路径"})
+	var req struct {
+		PythonExe string `json:"pythonExe"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "无效的请求数据"})
 		return
 	}
-	if _, err := os.Stat(website.PythonPath); os.IsNotExist(err) {
-		c.JSON(400, gin.H{"error": "Python可执行文件不存在: " + website.PythonPath})
+	pythonExe := strings.TrimSpace(req.PythonExe)
+	if pythonExe == "" {
+		c.JSON(400, gin.H{"error": "请选择 python.exe 后再创建虚拟环境"})
+		return
+	}
+	if _, err := os.Stat(pythonExe); os.IsNotExist(err) {
+		c.JSON(400, gin.H{"error": "Python可执行文件不存在: " + pythonExe})
 		return
 	}
 
 	venvPath := website.VenvPath
 	if venvPath == "" {
-		venvPath = filepath.Join(website.Path, "venv")
+		venvPath = filepath.Join(website.Path, ".venv")
 	}
 
 	// 检查虚拟环境是否已存在
@@ -448,7 +438,7 @@ func CreateVenv(c *gin.Context) {
 	}
 
 	// 创建虚拟环境
-	cmd := exec.Command(website.PythonPath, "-m", "venv", venvPath)
+	cmd := ui.HideWindow(pythonExe, "-m", "venv", venvPath)
 	cmd.Dir = website.Path
 	if runtime.GOOS == "windows" {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -468,7 +458,31 @@ func CreateVenv(c *gin.Context) {
 	website.UpdatedAt = time.Now().UnixMilli()
 	saveWebsites(websites)
 
-	c.JSON(200, gin.H{"success": true, "venvPath": venvPath})
+	// 返回虚拟环境python路径与建议启动命令（仅用于前端填充，不强制修改用户命令）
+	var venvPython string
+	if runtime.GOOS == "windows" {
+		venvPython = filepath.Join(venvPath, "Scripts", "python.exe")
+	} else {
+		venvPython = filepath.Join(venvPath, "bin", "python")
+	}
+	entry := ""
+	if _, err := os.Stat(filepath.Join(website.Path, "app.py")); err == nil {
+		entry = "app.py"
+	} else if _, err := os.Stat(filepath.Join(website.Path, "main.py")); err == nil {
+		entry = "main.py"
+	}
+	suggested := ""
+	if entry != "" {
+		// 给可执行路径加引号，兼容空格路径
+		suggested = fmt.Sprintf("\"%s\" %s", venvPython, entry)
+	}
+
+	c.JSON(200, gin.H{
+		"success":               true,
+		"venvPath":              venvPath,
+		"venvPython":            venvPython,
+		"suggestedStartCommand": suggested,
+	})
 }
 
 // DeleteVenv 删除虚拟环境
@@ -509,7 +523,21 @@ func DeleteVenv(c *gin.Context) {
 	c.JSON(200, gin.H{"success": true})
 }
 
-// InstallRequirements 安装依赖
+// flushWriter 在每次 Write 后 Flush，用于实时输出
+type flushWriter struct {
+	w io.Writer
+	f http.Flusher
+}
+
+func (f *flushWriter) Write(p []byte) (n int, err error) {
+	n, err = f.w.Write(p)
+	if err == nil && f.f != nil {
+		f.f.Flush()
+	}
+	return
+}
+
+// InstallRequirements 安装依赖，实时输出到弹窗并追加到网站日志
 func InstallRequirements(c *gin.Context) {
 	id := c.Param("id")
 	websites := loadWebsites()
@@ -527,14 +555,10 @@ func InstallRequirements(c *gin.Context) {
 		return
 	}
 
-	requirementsPath := website.RequirementsTxt
-	if requirementsPath == "" {
-		requirementsPath = filepath.Join(website.Path, "requirements.txt")
-	}
-
-	// 检查requirements.txt是否存在
-	if _, err := os.Stat(requirementsPath); os.IsNotExist(err) {
-		c.JSON(400, gin.H{"error": "requirements.txt文件不存在"})
+	// 自动检测项目目录下的依赖文件
+	depFile, err := detectDependencyFile(website.Path)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -555,9 +579,70 @@ func InstallRequirements(c *gin.Context) {
 		}
 	}
 
-	// 安装依赖
-	cmd := exec.Command(pipPath, "install", "-r", requirementsPath)
+	// 创建/打开网站日志文件（追加）
+	logDir := filepath.Join(website.Path, "logs")
+	os.MkdirAll(logDir, 0755)
+	logFile := filepath.Join(logDir, fmt.Sprintf("%s.log", id))
+	logHandle, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "打开日志文件失败: " + err.Error()})
+		return
+	}
+	defer logHandle.Close()
+
+	// 写入安装开始标记到日志
+	header := fmt.Sprintf("\n===== 安装依赖 [%s] 来源: %s =====\n", time.Now().Format("2006-01-02 15:04:05"), filepath.Base(depFile.Path))
+	logHandle.WriteString(header)
+
+	// 设置流式响应
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	// 根据依赖文件类型构建安装命令
+	var installArgs []string
+	switch depFile.Install {
+	case "requirements":
+		installArgs = []string{pipPath, "install", "-r", depFile.Path}
+	case "pyproject", "setup":
+		installArgs = []string{pipPath, "install", "."}
+	case "pipfile":
+		// Pipfile 使用 pipenv install，需在项目目录执行
+		installArgs = []string{"pipenv", "install"}
+	default:
+		installArgs = []string{pipPath, "install", "-r", depFile.Path}
+	}
+
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		// 不支持流式则回退到同步输出（仍返回 text/plain 供前端统一处理）
+		cmdSync := ui.HideWindow(installArgs[0], installArgs[1:]...)
+		cmdSync.Dir = website.Path
+		if runtime.GOOS == "windows" {
+			cmdSync.SysProcAttr = &syscall.SysProcAttr{
+				HideWindow:    true,
+				CreationFlags: createNoWindow,
+			}
+		}
+		output, err := cmdSync.CombinedOutput()
+		logHandle.Write(output)
+		if err != nil {
+			logHandle.WriteString("\n[INSTALL_FAILED] " + err.Error() + "\n")
+			c.Header("Content-Type", "text/plain; charset=utf-8")
+			c.String(500, string(output)+"\n[INSTALL_FAILED] "+err.Error()+"\n")
+			return
+		}
+		c.Header("Content-Type", "text/plain; charset=utf-8")
+		c.String(200, string(output))
+		return
+	}
+
+	// 双写：同时输出到日志文件和 HTTP 响应
+	streamWriter := io.MultiWriter(logHandle, &flushWriter{w: c.Writer, f: flusher})
+
+	cmd := ui.HideWindow(installArgs[0], installArgs[1:]...)
 	cmd.Dir = website.Path
+	cmd.Stdout = streamWriter
+	cmd.Stderr = streamWriter
 	if runtime.GOOS == "windows" {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			HideWindow:    true,
@@ -565,13 +650,13 @@ func InstallRequirements(c *gin.Context) {
 		}
 	}
 
-	output, err := cmd.CombinedOutput()
+	err = cmd.Run()
+	logHandle.WriteString("\n")
 	if err != nil {
-		c.JSON(500, gin.H{"error": "安装依赖失败: " + string(output)})
+		// 流式响应已开始，不能调用 c.JSON，将错误写入流供前端解析
+		fmt.Fprintf(streamWriter, "\n[INSTALL_FAILED] %v\n", err)
 		return
 	}
-
-	c.JSON(200, gin.H{"success": true, "output": string(output)})
 }
 
 // StartWebsite 启动网站项目
@@ -618,30 +703,8 @@ func StartWebsite(c *gin.Context) {
 		return
 	}
 
-	// 如果有虚拟环境，使用虚拟环境中的Python
-	if website.VenvPath != "" {
-		var pythonPath string
-		if runtime.GOOS == "windows" {
-			pythonPath = filepath.Join(website.VenvPath, "Scripts", "python.exe")
-		} else {
-			pythonPath = filepath.Join(website.VenvPath, "bin", "python")
-		}
-		// 如果第一个参数是python/python3，替换为虚拟环境的python
-		if commandParts[0] == "python" || commandParts[0] == "python3" || strings.HasSuffix(commandParts[0], "python.exe") {
-			commandParts[0] = pythonPath
-		} else {
-			// 否则在命令前添加虚拟环境的python
-			newParts := []string{pythonPath}
-			commandParts = append(newParts, commandParts...)
-		}
-		cmd = exec.Command(commandParts[0], commandParts[1:]...)
-	} else {
-		// 使用配置的Python路径
-		if commandParts[0] == "python" || commandParts[0] == "python3" {
-			commandParts[0] = website.PythonPath
-		}
-		cmd = exec.Command(commandParts[0], commandParts[1:]...)
-	}
+	// 严格按用户填写的启动命令执行（不自动改写 python/venv）
+	cmd = ui.HideWindow(commandParts[0], commandParts[1:]...)
 
 	cmd.Dir = workingDir
 
@@ -679,6 +742,8 @@ func StartWebsite(c *gin.Context) {
 			CreationFlags: createNoWindow,
 		}
 	}
+	log.Println("cmd:	", cmd.String())
+	log.Println("workingDir:	", workingDir)
 
 	// 启动进程
 	if err := cmd.Start(); err != nil {
@@ -750,7 +815,7 @@ func stopWebsiteProcess(id string, pid int32) error {
 
 	// 否则通过PID停止
 	if runtime.GOOS == "windows" {
-		killCmd := exec.Command("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
+		killCmd := ui.HideWindow("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
 		return killCmd.Run()
 	} else {
 		proc, err := process.NewProcess(pid)
@@ -818,7 +883,7 @@ func getWebsiteProcessStatus(id string) ProcessStatus {
 func findProcessByPort(port int) int32 {
 	if runtime.GOOS == "windows" {
 		// 使用 netstat -ano 获取连接列表
-		cmd := exec.Command("netstat", "-ano")
+		cmd := ui.HideWindow("netstat", "-ano")
 		output, err := cmd.Output()
 		if err != nil {
 			log.Printf("[findProcessByPort] netstat 执行失败: %v", err)
@@ -878,7 +943,7 @@ func findProcessByPort(port int) int32 {
 		}
 	} else {
 		// Linux/macOS: 使用 lsof 或 ss
-		cmd := exec.Command("lsof", "-i", fmt.Sprintf(":%d", port), "-t")
+		cmd := ui.HideWindow("lsof", "-i", fmt.Sprintf(":%d", port), "-t")
 		output, err := cmd.Output()
 		if err == nil {
 			pidStr := strings.TrimSpace(string(output))
@@ -996,10 +1061,8 @@ func StreamWebsiteLogs(c *gin.Context) {
 
 // ProjectDetectResult 项目检测结果
 type ProjectDetectResult struct {
-	Framework       string `json:"framework"`       // 检测到的框架类型
-	VenvPath        string `json:"venvPath"`       // 检测到的虚拟环境路径
-	RequirementsTxt string `json:"requirementsTxt"` // 检测到的requirements.txt路径
-	StartCommand    string `json:"startCommand"`    // 建议的启动命令
+	Framework    string `json:"framework"`    // 检测到的框架类型
+	StartCommand string `json:"startCommand"` // 建议的启动命令
 }
 
 // DetectProjectInfo 检测项目信息
@@ -1044,12 +1107,8 @@ func DetectProjectInfo(c *gin.Context) {
 	log.Printf("[检测项目] 检测到框架: %s", result.Framework)
 
 	// 检测虚拟环境
-	result.VenvPath = detectVenv(req.Path)
-	log.Printf("[检测项目] 检测到虚拟环境: %s", result.VenvPath)
-
-	// 检测requirements.txt
-	result.RequirementsTxt = detectRequirementsTxt(req.Path)
-	log.Printf("[检测项目] 检测到requirements.txt: %s", result.RequirementsTxt)
+	_ = detectVenv(req.Path)
+	_ = detectRequirementsTxt(req.Path)
 
 	// 生成建议的启动命令
 	result.StartCommand = suggestStartCommand(result.Framework, req.Path)
@@ -1154,6 +1213,35 @@ func detectRequirementsTxt(projectPath string) string {
 	return ""
 }
 
+// depFileInfo 依赖文件信息：路径与安装方式
+type depFileInfo struct {
+	Path    string // 文件路径
+	Install string // 安装命令类型: "requirements" | "pyproject" | "setup" | "pipfile"
+}
+
+// detectDependencyFile 自动检测项目目录下的依赖文件（按常见优先级）
+func detectDependencyFile(projectPath string) (*depFileInfo, error) {
+	checks := []struct {
+		path    string
+		install string
+	}{
+		{filepath.Join(projectPath, "requirements.txt"), "requirements"},
+		{filepath.Join(projectPath, "requirements", "base.txt"), "requirements"},
+		{filepath.Join(projectPath, "requirements", "prod.txt"), "requirements"},
+		{filepath.Join(projectPath, "requirements", "requirements.txt"), "requirements"},
+		{filepath.Join(projectPath, "requirements-dev.txt"), "requirements"},
+		{filepath.Join(projectPath, "pyproject.toml"), "pyproject"},
+		{filepath.Join(projectPath, "setup.py"), "setup"},
+		{filepath.Join(projectPath, "Pipfile"), "pipfile"},
+	}
+	for _, c := range checks {
+		if _, err := os.Stat(c.path); err == nil {
+			return &depFileInfo{Path: c.path, Install: c.install}, nil
+		}
+	}
+	return nil, fmt.Errorf("未找到依赖文件，已检查: requirements.txt、requirements/*.txt、pyproject.toml、setup.py、Pipfile")
+}
+
 // suggestStartCommand 根据框架类型建议启动命令
 func suggestStartCommand(framework, projectPath string) string {
 	switch framework {
@@ -1192,7 +1280,7 @@ func suggestStartCommand(framework, projectPath string) string {
 // BrowseDirectory 浏览目录（用于文件选择器）
 func BrowseDirectory(c *gin.Context) {
 	reqPath := c.Query("path")
-	
+
 	// 特殊处理：如果path为空或"root"，返回Windows盘符列表
 	if reqPath == "" || reqPath == "root" {
 		if runtime.GOOS == "windows" {

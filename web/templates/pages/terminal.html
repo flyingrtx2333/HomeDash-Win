@@ -1,36 +1,281 @@
-{{define "terminal.html"}}
-{{template "master.html" .}}
-{{end}}
-
 {{define "pages/terminal-content"}}
-  <div class="section-header">
-    <h2>SSH 终端</h2>
-    <div class="header-actions">
-      <span class="terminal-status" id="terminalStatus">
-        <span class="status-dot"></span>
-        <span>未连接</span>
-      </span>
-      <button class="btn-outline" id="connectTerminalBtn">🔌 重连</button>
-      <button class="btn-outline" id="clearTerminalBtn">清屏</button>
-    </div>
+
+<!-- xterm.js 核心 CSS（必须先加载） -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css" />
+<link rel="stylesheet" href="/static/css/terminal.css" />
+
+<style>
+  .terminal-container {
+    position: relative;
+    width: 100%;
+    height: 70vh;
+    /* 或 600px，根据你的布局调整 */
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .terminal-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #888;
+  }
+
+  .status-dot.connected {
+    background: #0dbc79;
+  }
+
+  .status-dot.error {
+    background: #cd3131;
+  }
+</style>
+
+<div class="section-header">
+  <h2>SSH 终端</h2>
+  <div class="header-actions">
+    <span class="terminal-status" id="terminalStatus">
+      <span class="status-dot"></span>
+      <span>未连接</span>
+    </span>
+    <button class="btn-outline" id="connectTerminalBtn">🔌 重连</button>
   </div>
-  <div class="terminal-container" id="terminalContainer">
-    <div class="terminal-header">
-      <div class="terminal-dots">
-        <span class="terminal-dot red"></span>
-        <span class="terminal-dot yellow"></span>
-        <span class="terminal-dot green"></span>
-      </div>
-      <div class="terminal-title">
-        <span>PowerShell</span>
-      </div>
-    </div>
-    <div class="terminal-wrapper" id="terminal" tabindex="0">
-      <div class="terminal-output" id="terminalOutput"></div>
-      <div class="terminal-input-line">
-        <span class="terminal-prompt" id="terminalPrompt">PS&gt;</span>
-        <input type="text" class="terminal-input" id="terminalInput" autofocus />
-      </div>
-    </div>
+</div>
+<div class="terminal-header">
+  <div class="terminal-dots">
+    <span class="terminal-dot red"></span>
+    <span class="terminal-dot yellow"></span>
+    <span class="terminal-dot green"></span>
   </div>
+  <div class="terminal-title">
+    <span>PowerShell</span>
+  </div>
+
+</div>
+<div class="terminal-wrapper" id="terminalContainer"></div>
+
+
+<script type="module">
+  // 正确导入：使用 @xterm/ 前缀
+  import { Terminal } from 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/+esm';
+  import { FitAddon } from 'https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/+esm';
+
+  let terminalWs = null;
+  let term = null;
+  let fitAddon = null;
+
+  function connectTerminal() {
+    console.log('Connecting to terminal...');
+
+    if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
+      terminalWs.close();
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/terminal`;
+
+    updateTerminalStatus('connecting');
+
+    if (!term) {
+      term = new Terminal({
+        cursorBlink: true,
+        fontSize: 14,
+        fontFamily: 'Consolas, "Courier New", monospace',
+        theme: {
+          background: '#1e1e1e',
+          foreground: '#d4d4d4',
+          cursor: '#ffffff',
+          selection: 'rgba(255, 255, 255, 0.3)',
+          black: '#000000',
+          red: '#cd3131',
+          green: '#0dbc79',
+          yellow: '#e5e510',
+          blue: '#2472c8',
+          magenta: '#bc3fbc',
+          cyan: '#11a8cd',
+          white: '#e5e5e5',
+          brightBlack: '#666666',
+          brightRed: '#f14c4c',
+          brightGreen: '#23d18b',
+          brightYellow: '#f5f543',
+          brightBlue: '#3b8eea',
+          brightMagenta: '#d670d6',
+          brightCyan: '#29b8db',
+          brightWhite: '#e5e5e5'
+        },
+        allowTransparency: false,
+        scrollback: 5000,
+        convertEol: true
+      });
+
+      fitAddon = new FitAddon();
+      term.loadAddon(fitAddon);
+
+      const container = document.getElementById('terminalContainer');
+      term.open(container);
+
+      window.addEventListener('resize', () => {
+        if (fitAddon) fitAddon.fit();
+      });
+
+      term.onResize(({ cols, rows }) => {
+        if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
+          terminalWs.send(JSON.stringify({
+            type: "resize",
+            cols: cols,
+            rows: rows
+          }));
+        }
+      });
+
+      term.onData(data => {
+        if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
+          console.log('发送data:', data);
+          terminalWs.send(data);
+        }
+      });
+    }
+
+    term.clear();
+
+    terminalWs = new WebSocket(wsUrl);
+
+    terminalWs.onopen = () => {
+      updateTerminalStatus('connected');
+      term.writeln("\x1b[32m[系统] 已连接到远程终端...\x1b[0m");
+      term.focus();
+
+      const doFitAndResize = () => {
+        if (fitAddon) {
+          fitAddon.fit();
+          if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
+            terminalWs.send(JSON.stringify({
+              type: "resize",
+              cols: term.cols,
+              rows: term.rows
+            }));
+          }
+        }
+      };
+
+      // 多次尝试，确保首次加载成功
+      doFitAndResize();
+      setTimeout(doFitAndResize, 100);
+      setTimeout(doFitAndResize, 300);
+      setTimeout(doFitAndResize, 600);
+    };
+
+    terminalWs.onmessage = (event) => {
+      let data = event.data;
+      if (data instanceof Blob) {
+        const reader = new FileReader();
+        reader.onload = () => term.write(reader.result);
+        reader.readAsText(data);
+      } else {
+        term.write(data);
+      }
+    };
+
+    terminalWs.onclose = (event) => {
+      updateTerminalStatus('disconnected');
+      term.writeln("\r\n\x1b[31m[系统] 连接已断开 (code: " + event.code + ")\x1b[0m");
+      console.log('WebSocket closed:', event);
+    };
+
+    terminalWs.onerror = (error) => {
+      updateTerminalStatus('error');
+      term.writeln("\r\n\x1b[31m[系统] 连接错误，请检查网络或服务器\x1b[0m");
+      console.error('WebSocket Error:', error);
+    };
+
+    // 监听容器大小变化，自动 fit
+    const resizeObserver = new ResizeObserver(() => {
+      if (fitAddon) {
+        fitAddon.fit();
+        // 可选：如果 WS 已连接，发送 resize
+        if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
+          terminalWs.send(JSON.stringify({
+            type: "resize",
+            cols: term.cols,
+            rows: term.rows
+          }));
+        }
+      }
+    });
+    resizeObserver.observe(document.getElementById('terminalContainer'));
+
+    //venv处理
+    // 读取 venvPath
+    let venvPath = '';
+    try {
+      const context = JSON.parse(sessionStorage.getItem('websiteTerminalContext') || '{}');
+      venvPath = context.venvPath || '';
+      if (venvPath) {
+        let activateCmd = '';
+        activateCmd = `${venvPath.replace(/\//g, '\\')}\\Scripts\\activate.bat`;
+        setTimeout(() => {
+          terminalWs.send(activateCmd + '\r\n');
+          term.writeln(`\x1b[36m[自动激活] 执行: ${activateCmd}\x1b[0m`);
+          // 1.5 秒后检查 python 版本
+          // setTimeout(() => {
+          //     terminalWs.send('python --version\r\n');
+          // }, 1500);
+          sessionStorage.removeItem('websiteTerminalContext');
+        }, 1000);  // 等待 shell 就绪
+      }
+    } catch (e) {
+      console.warn('读取 venvPath 失败:', e);
+    }
+
+  }
+
+  function updateTerminalStatus(status) {
+    const statusEl = document.getElementById('terminalStatus');
+    if (!statusEl) return;
+
+    const dot = statusEl.querySelector('.status-dot');
+    const text = statusEl.querySelector('span:last-child');
+
+    dot.className = 'status-dot';
+    switch (status) {
+      case 'connected':
+        dot.classList.add('connected');
+        text.textContent = '已连接';
+        break;
+      case 'connecting':
+        text.textContent = '连接中...';
+        break;
+      case 'disconnected':
+        text.textContent = '已断开';
+        break;
+      case 'error':
+        dot.classList.add('error');
+        text.textContent = '连接错误';
+        break;
+      default:
+        text.textContent = '未知状态';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const connectBtn = document.getElementById('connectTerminalBtn');
+    if (connectBtn) {
+      connectBtn.addEventListener('click', () => {
+        if (term) term.clear();
+        connectTerminal();
+      });
+    }
+    connectTerminal();  // 自动连接，可根据需要注释
+  });
+
+  window.connectTerminal = connectTerminal;
+</script>
+
 {{end}}
