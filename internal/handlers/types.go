@@ -110,7 +110,7 @@ type PythonVersion struct {
 }
 
 // AppVersion 当前应用版本号（与 release 保持一致）
-const AppVersion = "0.4.1"
+const AppVersion = "0.5.0"
 
 // UpdateCheckResponse 更新检查接口返回（与更新服务器约定一致）
 type UpdateCheckResponse struct {
@@ -118,4 +118,38 @@ type UpdateCheckResponse struct {
 	LatestVersion string `json:"latestVersion,omitempty"`
 	DownloadURL   string `json:"downloadUrl,omitempty"`
 	ReleaseNotes  string `json:"releaseNotes,omitempty"`
+}
+
+// Database 数据库配置（支持 MySQL、Redis、MongoDB 等）
+type Database struct {
+	ID         string `json:"id"`         // 数据库ID
+	Name       string `json:"name"`       // 数据库名称
+	Type       string `json:"type"`       // 数据库类型：mysql/redis/mongodb
+	Host       string `json:"host"`       // 主机地址（默认 localhost）
+	Port       int    `json:"port"`       // 端口（MySQL默认3306）
+	Username   string `json:"username"`   // 用户名
+	Password   string `json:"password"`   // 密码
+	Note       string `json:"note"`       // 备注
+	BackupDir  string `json:"backupDir"`  // 备份目录
+	AutoBackup bool   `json:"autoBackup"` // 是否自动备份
+	BackupCron string `json:"backupCron"` // 备份频率（cron表达式，如：0 2 * * * 表示每天凌晨2点）
+	CreatedAt  int64  `json:"createdAt"`
+	UpdatedAt  int64  `json:"updatedAt"`
+}
+
+// BackupInfo 备份文件信息
+type BackupInfo struct {
+	Filename string `json:"filename"` // 文件名
+	Size     int64  `json:"size"`     // 文件大小（字节）
+	ModTime  int64  `json:"modTime"`  // 修改时间（Unix时间戳）
+}
+
+// TableInfo 数据库表信息
+type TableInfo struct {
+	Name      string `json:"name"`      // 表名
+	Rows      int64  `json:"rows"`      // 行数（近似值）
+	DataSize  int64  `json:"dataSize"`  // 数据大小（字节）
+	IndexSize int64  `json:"indexSize"` // 索引大小（字节）
+	Engine    string `json:"engine"`    // 存储引擎
+	Comment   string `json:"comment"`   // 表注释
 }

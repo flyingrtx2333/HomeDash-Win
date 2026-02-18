@@ -12,9 +12,11 @@ var (
 	settingsFile  string
 	servicesFile  string
 	websitesFile  string
+	databasesFile string
 	settingsMu    sync.RWMutex
 	servicesMu   sync.RWMutex
 	websitesMu    sync.RWMutex
+	databasesMu   sync.RWMutex
 	webdavRoot    string // WebDAV 根目录
 )
 
@@ -24,6 +26,7 @@ func InitHandlers(wd, sf, svf, wr string) {
 	settingsFile = sf
 	servicesFile = svf
 	websitesFile = filepath.Join(wd, "websites.json")
+	databasesFile = filepath.Join(wd, "databases.json")
 	webdavRoot = wr
 }
 
@@ -125,6 +128,33 @@ func saveWebsites(websites []PythonWebsite) error {
 		return err
 	}
 	return os.WriteFile(websitesFile, data, 0644)
+}
+
+// loadDatabases 加载数据库列表
+func loadDatabases() []Database {
+	databasesMu.RLock()
+	defer databasesMu.RUnlock()
+
+	var databases []Database
+	data, err := os.ReadFile(databasesFile)
+	if err != nil {
+		return databases
+	}
+
+	json.Unmarshal(data, &databases)
+	return databases
+}
+
+// saveDatabases 保存数据库列表
+func saveDatabases(databases []Database) error {
+	databasesMu.Lock()
+	defer databasesMu.Unlock()
+
+	data, err := json.MarshalIndent(databases, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(databasesFile, data, 0644)
 }
 
 // resolveWebDir 解析web目录路径

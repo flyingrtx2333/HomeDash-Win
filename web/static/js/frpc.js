@@ -193,6 +193,7 @@ function confirmFrpcProxyModal() {
     }
     renderFrpcProxies();
     closeFrpcProxyModal();
+    saveFrpcConfigSimple();
 }
 
 async function saveFrpcConfigSimple() {

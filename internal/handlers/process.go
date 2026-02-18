@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"homedash/internal/ui"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -213,42 +212,21 @@ func checkServiceProcess(processName, launchPath, launchCommand string) ProcessS
 
 // stopServiceProcess 停止服务进程
 func stopServiceProcess(pid int32) error {
-	if runtime.GOOS == "windows" {
-		// 先尝试优雅关闭
-		cmd := ui.HideWindow("taskkill", "/PID", fmt.Sprintf("%d", pid))
-		err := cmd.Run()
-		if err == nil {
-			// 等待进程退出（最多 5 秒）
-			for i := 0; i < 10; i++ {
-				exists, _ := process.PidExists(pid)
-				if !exists {
-					return nil
-				}
-				time.Sleep(500 * time.Millisecond)
+	// 先尝试优雅关闭
+	cmd := ui.HideWindow("taskkill", "/PID", fmt.Sprintf("%d", pid))
+	err := cmd.Run()
+	if err == nil {
+		// 等待进程退出（最多 5 秒）
+		for i := 0; i < 10; i++ {
+			exists, _ := process.PidExists(pid)
+			if !exists {
+				return nil
 			}
+			time.Sleep(500 * time.Millisecond)
 		}
-
-		// 如果优雅关闭失败或超时，强制终止
-		cmd = ui.HideWindow("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
-		return cmd.Run()
-	} else {
-		// Linux/Mac 上使用 kill 命令
-		// 先尝试 SIGTERM
-		proc, err := process.NewProcess(pid)
-		if err != nil {
-			return err
-		}
-		proc.Terminate()
-
-		// 等待进程退出
-		time.Sleep(2 * time.Second)
-
-		// 如果还在运行，强制终止
-		exists, _ := process.PidExists(pid)
-		if exists {
-			proc.Kill()
-		}
-
-		return nil
 	}
+
+	// 如果优雅关闭失败或超时，强制终止
+	cmd = ui.HideWindow("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
+	return cmd.Run()
 }

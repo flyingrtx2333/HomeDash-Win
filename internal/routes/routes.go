@@ -52,6 +52,9 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 	router.GET("/websites", func(c *gin.Context) {
 		c.HTML(200, "home.html", gin.H{})
 	})
+	router.GET("/database", func(c *gin.Context) {
+		c.HTML(200, "home.html", gin.H{})
+	})
 
 	// 静态文件服务
 	router.StaticFS("/static", http.Dir(webDir+"/static"))
@@ -160,6 +163,31 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 		// 日志
 		api.GET("/websites/:id/logs", handlers.GetWebsiteLogs)
 		router.GET("/ws/websites/:id/logs", handlers.StreamWebsiteLogs)
+	}
+
+	// ========== 数据库管理 ==========
+	{
+		// 数据库CRUD
+		api.GET("/databases", handlers.GetDatabases)
+		api.GET("/databases/:id", handlers.GetDatabase)
+		api.POST("/databases", handlers.CreateDatabase)
+		api.PUT("/databases/:id", handlers.UpdateDatabase)
+		api.DELETE("/databases/:id", handlers.DeleteDatabase)
+
+		// MySQL 操作
+		api.POST("/databases/:id/test", handlers.TestConnection)
+		api.POST("/databases/:id/change-password", handlers.ChangePassword)
+		api.GET("/databases/:id/export", handlers.ExportSQL)
+		api.POST("/databases/:id/import", handlers.ImportSQL)
+		api.GET("/databases/:id/tables", handlers.GetTables)
+
+		// 备份管理
+		api.GET("/databases/:id/backups", handlers.GetBackups)
+		api.POST("/databases/:id/backup", handlers.CreateBackup)
+		api.DELETE("/databases/:id/backups/:filename", handlers.DeleteBackup)
+		api.GET("/databases/:id/backups/:filename/download", handlers.DownloadBackup)
+		api.GET("/databases/:id/backup-config", handlers.GetBackupConfig)
+		api.POST("/databases/:id/backup-config", handlers.UpdateBackupConfig)
 	}
 
 	// ========== 日志查看器 ==========

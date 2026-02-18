@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -21,7 +20,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/shirou/gopsutil/v3/process"
 )
 
 var (
@@ -121,14 +119,8 @@ func UpdateWebsite(c *gin.Context) {
 			if updated.EnvironmentVars == nil {
 				updated.EnvironmentVars = make(map[string]string)
 			}
-			// 工作目录：优先用用户提交的，否则沿用旧值，再否则=项目路径
-			if strings.TrimSpace(updated.WorkingDir) == "" {
-				if strings.TrimSpace(prev.WorkingDir) != "" {
-					updated.WorkingDir = prev.WorkingDir
-				} else {
-					updated.WorkingDir = updated.Path
-				}
-			}
+			// 工作目录
+			updated.WorkingDir = updated.Path
 
 			// 保留旧字段
 			if strings.TrimSpace(updated.Domain) == "" {
@@ -139,7 +131,7 @@ func UpdateWebsite(c *gin.Context) {
 				updated.PythonPath = prev.PythonPath
 			}
 			if strings.TrimSpace(updated.RequirementsTxt) == "" {
-				updated.RequirementsTxt = prev.RequirementsTxt
+				updated.RequirementsTxt = updated.Path + "\\requirements.txt"
 			}
 			updated.Enabled = prev.Enabled
 
@@ -238,136 +230,93 @@ func GetPythonVersions(c *gin.Context) {
 func detectPythonVersions() []PythonVersion {
 	var versions []PythonVersion
 
-	if runtime.GOOS == "windows" {
-		// Windows: 使用 py launcher 检测
-		cmd := ui.HideWindow("py", "-0")
-		output, err := cmd.Output()
-		if err == nil {
-			lines := strings.Split(string(output), "\n")
-			for _, line := range lines {
-				line = strings.TrimSpace(line)
-				if line == "" || strings.HasPrefix(line, "Installed") {
-					continue
-				}
-				// 解析格式: "-3.11    C:\Python311\python.exe"
-				parts := strings.Fields(line)
-				if len(parts) >= 2 {
-					path := parts[len(parts)-1]
-					if _, err := os.Stat(path); err == nil {
-						// 获取实际版本号
-						actualVersion := getPythonVersion(path)
-						if actualVersion != "" {
-							versions = append(versions, PythonVersion{
-								Version:   actualVersion,
-								Path:      path,
-								IsDefault: false,
-							})
-						}
+	// Windows: 使用 py launcher 检测
+	cmd := ui.HideWindow("py", "-0")
+	output, err := cmd.Output()
+	if err == nil {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "Installed") {
+				continue
+			}
+			// 解析格式: "-3.11    C:\Python311\python.exe"
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				path := parts[len(parts)-1]
+				if _, err := os.Stat(path); err == nil {
+					// 获取实际版本号
+					actualVersion := getPythonVersion(path)
+					if actualVersion != "" {
+						versions = append(versions, PythonVersion{
+							Version:   actualVersion,
+							Path:      path,
+							IsDefault: false,
+						})
 					}
 				}
 			}
 		}
+	}
 
-		// 检查常见安装路径
-		commonPaths := []string{
-			"C:\\Python*",
-			filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs", "Python", "*"),
-			filepath.Join(os.Getenv("PROGRAMFILES"), "Python*"),
-		}
+	// 检查常见安装路径
+	commonPaths := []string{
+		"C:\\Python*",
+		filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs", "Python", "*"),
+		filepath.Join(os.Getenv("PROGRAMFILES"), "Python*"),
+	}
 
-		for _, pattern := range commonPaths {
-			matches, _ := filepath.Glob(pattern)
-			for _, match := range matches {
-				pythonExe := filepath.Join(match, "python.exe")
-				if _, err := os.Stat(pythonExe); err == nil {
-					version := getPythonVersion(pythonExe)
-					if version != "" {
-						// 检查是否已存在
-						exists := false
-						for _, v := range versions {
-							if v.Path == pythonExe {
-								exists = true
-								break
-							}
-						}
-						if !exists {
-							versions = append(versions, PythonVersion{
-								Version:   version,
-								Path:      pythonExe,
-								IsDefault: false,
-							})
-						}
-					}
-				}
-			}
-		}
-
-		// 检查默认python命令
-		if pythonPath, err := exec.LookPath("python"); err == nil {
-			version := getPythonVersion(pythonPath)
-			if version != "" {
-				exists := false
-				for _, v := range versions {
-					if v.Path == pythonPath {
-						exists = true
-						break
-					}
-				}
-				if !exists {
-					versions = append(versions, PythonVersion{
-						Version:   version,
-						Path:      pythonPath,
-						IsDefault: true,
-					})
-				} else {
-					// 标记为默认
-					for i := range versions {
-						if versions[i].Path == pythonPath {
-							versions[i].IsDefault = true
+	for _, pattern := range commonPaths {
+		matches, _ := filepath.Glob(pattern)
+		for _, match := range matches {
+			pythonExe := filepath.Join(match, "python.exe")
+			if _, err := os.Stat(pythonExe); err == nil {
+				version := getPythonVersion(pythonExe)
+				if version != "" {
+					// 检查是否已存在
+					exists := false
+					for _, v := range versions {
+						if v.Path == pythonExe {
+							exists = true
 							break
 						}
 					}
-				}
-			}
-		}
-	} else {
-		// Linux/Mac: 检查常见路径
-		commonPaths := []string{
-			"/usr/bin/python3",
-			"/usr/local/bin/python3",
-			"/opt/homebrew/bin/python3",
-		}
-
-		for _, path := range commonPaths {
-			if _, err := os.Stat(path); err == nil {
-				version := getPythonVersion(path)
-				if version != "" {
-					versions = append(versions, PythonVersion{
-						Version:   version,
-						Path:      path,
-						IsDefault: false,
-					})
-				}
-			}
-		}
-
-		// 检查默认python3命令
-		if pythonPath, err := exec.LookPath("python3"); err == nil {
-			version := getPythonVersion(pythonPath)
-			if version != "" {
-				exists := false
-				for _, v := range versions {
-					if v.Path == pythonPath {
-						exists = true
-						break
+					if !exists {
+						versions = append(versions, PythonVersion{
+							Version:   version,
+							Path:      pythonExe,
+							IsDefault: false,
+						})
 					}
 				}
-				if !exists {
-					versions = append(versions, PythonVersion{
-						Version:   version,
-						Path:      pythonPath,
-						IsDefault: true,
-					})
+			}
+		}
+	}
+
+	// 检查默认python命令
+	if pythonPath, err := exec.LookPath("python"); err == nil {
+		version := getPythonVersion(pythonPath)
+		if version != "" {
+			exists := false
+			for _, v := range versions {
+				if v.Path == pythonPath {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				versions = append(versions, PythonVersion{
+					Version:   version,
+					Path:      pythonPath,
+					IsDefault: true,
+				})
+			} else {
+				// 标记为默认
+				for i := range versions {
+					if versions[i].Path == pythonPath {
+						versions[i].IsDefault = true
+						break
+					}
 				}
 			}
 		}
@@ -440,11 +389,9 @@ func CreateVenv(c *gin.Context) {
 	// 创建虚拟环境
 	cmd := ui.HideWindow(pythonExe, "-m", "venv", venvPath)
 	cmd.Dir = website.Path
-	if runtime.GOOS == "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			HideWindow:    true,
-			CreationFlags: createNoWindow,
-		}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: createNoWindow,
 	}
 
 	output, err := cmd.CombinedOutput()
@@ -460,11 +407,7 @@ func CreateVenv(c *gin.Context) {
 
 	// 返回虚拟环境python路径与建议启动命令（仅用于前端填充，不强制修改用户命令）
 	var venvPython string
-	if runtime.GOOS == "windows" {
-		venvPython = filepath.Join(venvPath, "Scripts", "python.exe")
-	} else {
-		venvPython = filepath.Join(venvPath, "bin", "python")
-	}
+	venvPython = filepath.Join(venvPath, "Scripts", "python.exe")
 	entry := ""
 	if _, err := os.Stat(filepath.Join(website.Path, "app.py")); err == nil {
 		entry = "app.py"
@@ -565,18 +508,9 @@ func InstallRequirements(c *gin.Context) {
 	// 确定pip路径
 	var pipPath string
 	if website.VenvPath != "" {
-		if runtime.GOOS == "windows" {
-			pipPath = filepath.Join(website.VenvPath, "Scripts", "pip.exe")
-		} else {
-			pipPath = filepath.Join(website.VenvPath, "bin", "pip")
-		}
+		pipPath = filepath.Join(website.VenvPath, "Scripts", "pip.exe")
 	} else {
-		// 使用系统pip
-		if runtime.GOOS == "windows" {
-			pipPath = "pip"
-		} else {
-			pipPath = "pip3"
-		}
+		pipPath = "pip"
 	}
 
 	// 创建/打开网站日志文件（追加）
@@ -617,11 +551,9 @@ func InstallRequirements(c *gin.Context) {
 		// 不支持流式则回退到同步输出（仍返回 text/plain 供前端统一处理）
 		cmdSync := ui.HideWindow(installArgs[0], installArgs[1:]...)
 		cmdSync.Dir = website.Path
-		if runtime.GOOS == "windows" {
-			cmdSync.SysProcAttr = &syscall.SysProcAttr{
-				HideWindow:    true,
-				CreationFlags: createNoWindow,
-			}
+		cmdSync.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow:    true,
+			CreationFlags: createNoWindow,
 		}
 		output, err := cmdSync.CombinedOutput()
 		logHandle.Write(output)
@@ -643,11 +575,9 @@ func InstallRequirements(c *gin.Context) {
 	cmd.Dir = website.Path
 	cmd.Stdout = streamWriter
 	cmd.Stderr = streamWriter
-	if runtime.GOOS == "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			HideWindow:    true,
-			CreationFlags: createNoWindow,
-		}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: createNoWindow,
 	}
 
 	err = cmd.Run()
@@ -736,11 +666,9 @@ func StartWebsite(c *gin.Context) {
 	cmd.Stdout = logFileHandle
 	cmd.Stderr = logFileHandle
 
-	if runtime.GOOS == "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			HideWindow:    true,
-			CreationFlags: createNoWindow,
-		}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: createNoWindow,
 	}
 	log.Println("cmd:	", cmd.String())
 	log.Println("workingDir:	", workingDir)
@@ -799,37 +727,47 @@ func stopWebsiteProcess(id string, pid int32) error {
 	}
 	websiteLogMu.Unlock()
 
+	runTaskkill := func(targetPID int32) error {
+		if targetPID <= 0 {
+			return nil
+		}
+		killCmd := ui.HideWindow("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", targetPID))
+		out, err := killCmd.CombinedOutput()
+		if err == nil {
+			return nil
+		}
+		// taskkill 常见失败：目标进程已退出/不存在。这种场景对“停止”应视为成功（幂等）。
+		// 经验上该场景可能会返回 exit code 128，或输出包含 NOT FOUND 类信息。
+		exitCode := -1
+		if ee, ok := err.(*exec.ExitError); ok {
+			exitCode = ee.ExitCode()
+		}
+		outStr := strings.ToLower(strings.TrimSpace(string(out)))
+		if exitCode == 128 ||
+			strings.Contains(outStr, "not found") ||
+			strings.Contains(outStr, "not exist") ||
+			strings.Contains(outStr, "no instance") ||
+			strings.Contains(outStr, "找不到") ||
+			strings.Contains(outStr, "没有找到") ||
+			strings.Contains(outStr, "不存在") {
+			return nil
+		}
+		log.Printf("[stopWebsiteProcess] taskkill 失败 id=%s pid=%d exit=%d err=%v out=%s", id, targetPID, exitCode, err, strings.TrimSpace(string(out)))
+		return err
+	}
+
 	// 如果cmd存在，尝试通过cmd停止
 	if cmd != nil && cmd.Process != nil {
-		if runtime.GOOS == "windows" {
-			cmd.Process.Kill()
-		} else {
-			cmd.Process.Signal(os.Interrupt)
-			time.Sleep(2 * time.Second)
-			if cmd.ProcessState == nil || !cmd.ProcessState.Exited() {
-				cmd.Process.Kill()
-			}
+		// Windows: 用 taskkill /T 结束进程树，避免只杀父进程而子进程（如实际监听的 python）仍在运行
+		if err := runTaskkill(int32(cmd.Process.Pid)); err != nil {
+			// 若 taskkill 失败则回退为直接 Kill
+			_ = cmd.Process.Kill()
 		}
 		return nil
 	}
 
-	// 否则通过PID停止
-	if runtime.GOOS == "windows" {
-		killCmd := ui.HideWindow("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
-		return killCmd.Run()
-	} else {
-		proc, err := process.NewProcess(pid)
-		if err != nil {
-			return err
-		}
-		proc.Terminate()
-		time.Sleep(2 * time.Second)
-		exists, _ := process.PidExists(pid)
-		if exists {
-			proc.Kill()
-		}
-		return nil
-	}
+	// 否则通过PID停止（如应用重启后仅能通过端口查到 PID）
+	return runTaskkill(pid)
 }
 
 // GetWebsiteStatus 获取网站项目运行状态
@@ -881,83 +819,46 @@ func getWebsiteProcessStatus(id string) ProcessStatus {
 
 // findProcessByPort 查找占用指定端口的进程（优先通过 LISTENING 状态查找 TCP 监听）
 func findProcessByPort(port int) int32 {
-	if runtime.GOOS == "windows" {
-		// 使用 netstat -ano 获取连接列表
-		cmd := ui.HideWindow("netstat", "-ano")
-		output, err := cmd.Output()
-		if err != nil {
-			log.Printf("[findProcessByPort] netstat 执行失败: %v", err)
-			return 0
+
+	// 使用 netstat -ano 获取连接列表
+	cmd := ui.HideWindow("netstat", "-ano")
+	output, err := cmd.Output()
+	if err != nil {
+		log.Printf("[findProcessByPort] netstat 执行失败: %v", err)
+		return 0
+	}
+	portStr := fmt.Sprintf(":%d", port)
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// 只处理 LISTENING 状态的 TCP 行（服务端监听）
+		if !strings.Contains(line, "LISTENING") {
+			continue
 		}
-		portStr := fmt.Sprintf(":%d", port)
-		lines := strings.Split(string(output), "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			// 只处理 LISTENING 状态的 TCP 行（服务端监听）
-			if !strings.Contains(line, "LISTENING") {
+		if !strings.Contains(line, "TCP") {
+			continue
+		}
+		if !strings.Contains(line, portStr) {
+			continue
+		}
+		// 精确匹配端口，避免 :5000 匹配到 :50001
+		idx := strings.Index(line, portStr)
+		if idx >= 0 && idx+len(portStr) < len(line) {
+			next := line[idx+len(portStr)]
+			if next >= '0' && next <= '9' {
 				continue
-			}
-			if !strings.Contains(line, "TCP") {
-				continue
-			}
-			if !strings.Contains(line, portStr) {
-				continue
-			}
-			// 精确匹配端口，避免 :5000 匹配到 :50001
-			idx := strings.Index(line, portStr)
-			if idx >= 0 && idx+len(portStr) < len(line) {
-				next := line[idx+len(portStr)]
-				if next >= '0' && next <= '9' {
-					continue
-				}
-			}
-			parts := strings.Fields(line)
-			if len(parts) < 1 {
-				continue
-			}
-			var pid int32
-			if _, err := fmt.Sscanf(parts[len(parts)-1], "%d", &pid); err == nil && pid > 0 {
-				return pid
 			}
 		}
-		// 若未找到 LISTENING，再尝试匹配任意包含该端口的行（兼容不同输出格式）
-		for _, line := range lines {
-			if !strings.Contains(line, portStr) {
-				continue
-			}
-			idx := strings.Index(line, portStr)
-			if idx >= 0 && idx+len(portStr) < len(line) {
-				next := line[idx+len(portStr)]
-				if next >= '0' && next <= '9' {
-					continue
-				}
-			}
-			parts := strings.Fields(line)
-			if len(parts) < 1 {
-				continue
-			}
-			var pid int32
-			if _, err := fmt.Sscanf(parts[len(parts)-1], "%d", &pid); err == nil && pid > 0 {
-				return pid
-			}
+		parts := strings.Fields(line)
+		if len(parts) < 1 {
+			continue
 		}
-	} else {
-		// Linux/macOS: 使用 lsof 或 ss
-		cmd := ui.HideWindow("lsof", "-i", fmt.Sprintf(":%d", port), "-t")
-		output, err := cmd.Output()
-		if err == nil {
-			pidStr := strings.TrimSpace(string(output))
-			if pidStr != "" {
-				lines := strings.Split(pidStr, "\n")
-				if len(lines) > 0 {
-					var pid int32
-					if _, err := fmt.Sscanf(lines[0], "%d", &pid); err == nil && pid > 0 {
-						return pid
-					}
-				}
-			}
+		var pid int32
+		if _, err := fmt.Sscanf(parts[len(parts)-1], "%d", &pid); err == nil && pid > 0 {
+			return pid
 		}
 	}
+	// 只根据 LISTENING 返回 PID，不匹配 ESTABLISHED 等行，否则会误把本进程（访问该端口的客户端）当监听进程并误杀
 	return 0
 }
 
@@ -1188,16 +1089,9 @@ func detectVenv(projectPath string) string {
 		venvPath := filepath.Join(projectPath, venvName)
 		if info, err := os.Stat(venvPath); err == nil && info.IsDir() {
 			// 检查是否是有效的虚拟环境（包含Scripts或bin目录）
-			if runtime.GOOS == "windows" {
-				scriptsPath := filepath.Join(venvPath, "Scripts", "python.exe")
-				if _, err := os.Stat(scriptsPath); err == nil {
-					return venvPath
-				}
-			} else {
-				binPath := filepath.Join(venvPath, "bin", "python")
-				if _, err := os.Stat(binPath); err == nil {
-					return venvPath
-				}
+			scriptsPath := filepath.Join(venvPath, "Scripts", "python.exe")
+			if _, err := os.Stat(scriptsPath); err == nil {
+				return venvPath
 			}
 		}
 	}
@@ -1283,29 +1177,24 @@ func BrowseDirectory(c *gin.Context) {
 
 	// 特殊处理：如果path为空或"root"，返回Windows盘符列表
 	if reqPath == "" || reqPath == "root" {
-		if runtime.GOOS == "windows" {
-			drives := []FileInfo{}
-			for drive := 'A'; drive <= 'Z'; drive++ {
-				drivePath := string(drive) + ":\\"
-				if info, err := os.Stat(drivePath); err == nil && info.IsDir() {
-					drives = append(drives, FileInfo{
-						Name:    string(drive) + ":",
-						Path:    drivePath,
-						IsDir:   true,
-						Size:    0,
-						ModTime: 0,
-					})
-				}
+		drives := []FileInfo{}
+		for drive := 'A'; drive <= 'Z'; drive++ {
+			drivePath := string(drive) + ":\\"
+			if info, err := os.Stat(drivePath); err == nil && info.IsDir() {
+				drives = append(drives, FileInfo{
+					Name:    string(drive) + ":",
+					Path:    drivePath,
+					IsDir:   true,
+					Size:    0,
+					ModTime: 0,
+				})
 			}
-			c.JSON(200, gin.H{
-				"path":  "root",
-				"files": drives,
-			})
-			return
-		} else {
-			// Linux/Mac: 从根目录开始
-			reqPath = "/"
 		}
+		c.JSON(200, gin.H{
+			"path":  "root",
+			"files": drives,
+		})
+		return
 	}
 
 	// 规范化路径

@@ -2255,7 +2255,7 @@ textarea.form-control {
 
 .modal-large {
   min-width: 600px;
-  max-width: 800px;
+  max-width: 1400px;
 }
 
 @media (max-width: 768px) {

@@ -1,0 +1,388 @@
+/* ========== 数据库管理表格（复用 websites.css 的表格样式） ========== */
+.database-table-wrapper {
+    margin-top: 16px;
+}
+
+.database-empty {
+    display: none;
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-muted, rgba(148, 163, 184, 0.8));
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+.database-empty p {
+    margin: 0;
+}
+
+.database-table-container {
+    display: none;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    border: 1px solid var(--card-border, rgba(255, 255, 255, 0.08));
+    overflow: hidden;
+}
+
+.database-table-header {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) minmax(80px, 100px) minmax(100px, 120px) minmax(120px, 140px) minmax(100px, 1fr) minmax(200px, 240px);
+    gap: 12px 16px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--card-border, rgba(255, 255, 255, 0.08));
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--text-secondary, rgba(148, 163, 184, 0.9));
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.database-table-body {
+    max-height: 50vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.04);
+}
+
+.database-table-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.database-table-body::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.database-table-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.database-table-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.database-table-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) minmax(80px, 100px) minmax(100px, 120px) minmax(120px, 140px) minmax(100px, 1fr) minmax(200px, 240px);
+    gap: 12px 16px;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.2s ease;
+}
+
+.database-table-row:last-child {
+    border-bottom: none;
+}
+
+.database-table-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.database-td {
+    font-size: 13px;
+    color: var(--text-primary, #e2e8f0);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.database-td-name {
+    font-weight: 500;
+}
+
+.database-td-password {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.database-password-display {
+    flex: 1;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+}
+
+.database-td-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.database-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary, rgba(148, 163, 184, 0.9));
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.database-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--primary-color, #3b82f6);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.database-btn-danger:hover {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.5);
+    background: rgba(239, 68, 68, 0.15);
+}
+
+.database-btn-sm {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+.database-btn-sm:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* ========== 导入 SQL 警告样式 ========== */
+.import-warning {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.warning-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+}
+
+.warning-content h4 {
+    margin: 0 0 8px 0;
+    color: #ef4444;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.warning-content p {
+    margin: 8px 0;
+    font-size: 13px;
+    color: var(--text-secondary, rgba(148, 163, 184, 0.9));
+    line-height: 1.5;
+}
+
+.warning-content ul {
+    margin: 8px 0;
+    padding-left: 20px;
+    font-size: 13px;
+    color: var(--text-secondary, rgba(148, 163, 184, 0.9));
+}
+
+.warning-content li {
+    margin: 4px 0;
+}
+
+/* ========== 备份列表样式 ========== */
+.backup-list-container {
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.backup-loading,
+.backup-empty,
+.backup-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--text-muted, rgba(148, 163, 184, 0.8));
+    font-size: 14px;
+}
+
+.backup-error {
+    color: #ef4444;
+}
+
+.backup-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.2s ease;
+}
+
+.backup-item:last-child {
+    border-bottom: none;
+}
+
+.backup-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.backup-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.backup-filename {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary, #e2e8f0);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.backup-meta {
+    font-size: 12px;
+    color: var(--text-muted, rgba(148, 163, 184, 0.8));
+}
+
+.backup-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* ========== 密码显示/隐藏切换 ========== */
+.database-password-display {
+    user-select: none;
+}
+
+/* ========== 响应式设计 ========== */
+@media (max-width: 1200px) {
+    .database-table-header,
+    .database-table-row {
+        grid-template-columns: minmax(100px, 1fr) minmax(70px, 90px) minmax(80px, 100px) minmax(100px, 120px) minmax(80px, 1fr) minmax(180px, 220px);
+    }
+}
+
+@media (max-width: 768px) {
+    .database-table-header,
+    .database-table-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .database-th,
+    .database-td {
+        padding: 4px 0;
+    }
+
+    .database-th {
+        display: none;
+    }
+
+    .database-td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--text-secondary, rgba(148, 163, 184, 0.9));
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    .database-td-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+}
+
+/* ========== 表列表样式 ========== */
+.tables-list-container {
+    max-height: 60vh;
+}
+
+.tables-loading,
+.tables-empty,
+.tables-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--text-muted, rgba(148, 163, 184, 0.8));
+    font-size: 14px;
+}
+
+.tables-error {
+    color: #ef4444;
+}
+
+.tables-table-header {
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) minmax(100px, 120px) minmax(100px, 120px) minmax(100px, 120px) minmax(80px, 100px) minmax(150px, 1fr);
+    gap: 12px 16px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--card-border, rgba(255, 255, 255, 0.08));
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--text-secondary, rgba(148, 163, 184, 0.9));
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.tables-table-body {
+    max-height: 50vh;
+}
+
+.tables-table-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) minmax(100px, 120px) minmax(100px, 120px) minmax(100px, 120px) minmax(80px, 100px) minmax(150px, 1fr);
+    gap: 12px 16px;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.2s ease;
+}
+
+.tables-table-row:last-child {
+    border-bottom: none;
+}
+
+.tables-table-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tables-td {
+    font-size: 13px;
+    color: var(--text-primary, #e2e8f0);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tables-td-name {
+    font-weight: 500;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.tables-td-rows {
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+}
+
+.tables-td-size,
+.tables-td-index {
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+    color: var(--text-secondary, rgba(148, 163, 184, 0.9));
+}

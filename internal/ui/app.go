@@ -183,7 +183,7 @@ func (a *App) Run() {
 						TextColor: walk.RGB(201, 209, 217),
 					},
 					Label{
-						Text:      "v1.0",
+						Text:      "v0.4.1",
 						Font:      Font{Family: "Segoe UI", PointSize: 9},
 						TextColor: walk.RGB(110, 118, 129),
 					},

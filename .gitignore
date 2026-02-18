@@ -13,3 +13,4 @@ PROJECTRULE.md
 *.toml
 *.syso
 release.ps1
+databases.json

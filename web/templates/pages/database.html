@@ -1,0 +1,226 @@
+{{define "database.html"}}
+{{template "master.html" .}}
+{{end}}
+
+{{define "pages/database-content"}}
+<link rel="stylesheet" href="/static/css/database.css" />
+<div class="section-header">
+  <h2>数据库管理</h2>
+  <div class="section-header-actions">
+    <button type="button" class="btn-outline" id="databaseAddBtn">+ 添加数据库</button>
+  </div>
+</div>
+
+<!-- 数据库列表表格 -->
+<div class="database-table-wrapper">
+  <div class="database-empty" id="databaseEmpty">
+    <p>暂无数据库，点击「添加数据库」开始</p>
+  </div>
+  <div class="database-table-container" id="databaseList">
+    <div class="database-table-header">
+      <span class="database-th database-th-name">数据库名</span>
+      <span class="database-th database-th-type">类型</span>
+      <span class="database-th database-th-username">用户名</span>
+      <span class="database-th database-th-password">密码</span>
+      <span class="database-th database-th-note">备注</span>
+      <span class="database-th database-th-actions">操作</span>
+    </div>
+    <div class="database-table-body" id="databaseTableBody">
+      <!-- 行由 JS 动态渲染 -->
+    </div>
+  </div>
+</div>
+
+<!-- 创建/编辑数据库弹窗 -->
+<div class="modal-overlay" id="databaseModal">
+  <div class="modal modal-medium">
+    <div class="modal-header">
+      <h3 id="databaseModalTitle">添加数据库</h3>
+      <button class="modal-close" id="databaseModalClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="databaseEditId" value="" />
+      <div class="form-group form-group-inline form-group-row">
+        <div class="form-group-inline-item">
+          <label>数据库名称 <span class="required">*</span></label>
+          <input type="text" id="databaseName" class="form-control" placeholder="例如：mydb" />
+        </div>
+        <div class="form-group-inline-item">
+          <label>数据库类型 <span class="required">*</span></label>
+          <select id="databaseType" class="form-control">
+            <option value="mysql">MySQL</option>
+            <option value="redis">Redis</option>
+            <option value="mongodb">MongoDB</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group form-group-inline form-group-row">
+        <div class="form-group-inline-item">
+          <label>主机地址</label>
+          <input type="text" id="databaseHost" class="form-control" placeholder="localhost" value="localhost" />
+        </div>
+        <div class="form-group-inline-item">
+          <label>端口</label>
+          <input type="number" id="databasePort" class="form-control" placeholder="3306" min="1" max="65535" />
+        </div>
+      </div>
+      <div class="form-group form-group-inline form-group-row">
+        <div class="form-group-inline-item">
+          <label>用户名 <span class="required">*</span></label>
+          <input type="text" id="databaseUsername" class="form-control" placeholder="root" />
+        </div>
+        <div class="form-group-inline-item">
+          <label>密码 <span class="required">*</span></label>
+          <div class="form-control-group">
+            <input type="password" id="databasePassword" class="form-control" placeholder="请输入密码" />
+            <button type="button" class="btn-outline btn-sm" id="databasePasswordToggle" title="显示/隐藏密码">👁</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-group form-group-inline">
+        <label>备注</label>
+        <input type="text" id="databaseNote" class="form-control" placeholder="可选，用于描述此数据库" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="databaseModalCancel">取消</button>
+      <button type="button" class="btn-outline" id="databaseModalConfirm">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 导入 SQL 确认弹窗 -->
+<div class="modal-overlay" id="importSQLModal">
+  <div class="modal modal-large">
+    <div class="modal-header">
+      <h3>导入 SQL - 危险操作</h3>
+      <button class="modal-close" id="importSQLClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="import-warning">
+        <div class="warning-icon">⚠️</div>
+        <div class="warning-content">
+          <h4>警告：此操作将覆盖数据库现有数据！</h4>
+          <p>导入 SQL 文件会执行其中的所有 SQL 语句，可能会：</p>
+          <ul>
+            <li>删除现有表和数据</li>
+            <li>修改数据库结构</li>
+            <li>无法撤销</li>
+          </ul>
+          <p><strong>请确保您已备份数据库，并确认要执行此操作。</strong></p>
+        </div>
+      </div>
+      <div class="form-group form-group-inline">
+        <label>选择 SQL 文件</label>
+        <input type="file" id="importSQLFile" class="form-control" accept=".sql,.txt" />
+      </div>
+      <div class="form-group form-group-inline">
+        <label class="toggle-switch">
+          <input type="checkbox" id="importSQLConfirmed" />
+          <span class="toggle-slider"></span>
+          <span>我已阅读警告并确认要导入 SQL</span>
+        </label>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="importSQLCancel">取消</button>
+      <button type="button" class="btn-danger" id="importSQLConfirm" disabled>确认导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 备份配置弹窗 -->
+<div class="modal-overlay" id="backupConfigModal">
+  <div class="modal modal-medium">
+    <div class="modal-header">
+      <h3>备份配置</h3>
+      <button class="modal-close" id="backupConfigClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="backupConfigDatabaseId" value="" />
+      <div class="form-group form-group-inline">
+        <label>备份目录</label>
+        <input type="text" id="backupConfigDir" class="form-control" placeholder="留空使用默认目录：web/backups/{数据库ID}" />
+      </div>
+      <div class="form-group form-group-inline">
+        <label class="toggle-switch">
+          <input type="checkbox" id="backupConfigAutoBackup" />
+          <span class="toggle-slider"></span>
+          <span>启用自动备份</span>
+        </label>
+      </div>
+      <div class="form-group form-group-inline">
+        <label>备份频率（Cron 表达式）</label>
+        <input type="text" id="backupConfigCron" class="form-control" placeholder="例如：0 2 * * * 表示每天凌晨2点" />
+        <small class="form-text">格式：分 时 日 月 周，例如：0 2 * * *（每天凌晨2点）</small>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="backupConfigCancel">取消</button>
+      <button type="button" class="btn-primary" id="backupConfigConfirm">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 备份列表弹窗 -->
+<div class="modal-overlay" id="backupListModal">
+  <div class="modal modal-large">
+    <div class="modal-header">
+      <h3>备份列表</h3>
+      <button class="modal-close" id="backupListClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="backup-list-container" id="backupListContainer">
+        <div class="backup-loading">加载中...</div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="backupListCancel">关闭</button>
+      <button type="button" class="btn-outline" id="backupListRefreshBtn">刷新</button>
+    </div>
+  </div>
+</div>
+
+<!-- 改密弹窗 -->
+<div class="modal-overlay" id="changePasswordModal">
+  <div class="modal modal-medium">
+    <div class="modal-header">
+      <h3>修改密码</h3>
+      <button class="modal-close" id="changePasswordClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="changePasswordDatabaseId" value="" />
+      <div class="form-group form-group-inline">
+        <label>新密码 <span class="required">*</span></label>
+        <div class="form-control-group">
+          <input type="password" id="changePasswordNew" class="form-control" placeholder="请输入新密码" />
+          <button type="button" class="btn-outline btn-sm" id="changePasswordToggle" title="显示/隐藏密码">👁</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="changePasswordCancel">取消</button>
+      <button type="button" class="btn-primary" id="changePasswordConfirm">确认修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- 表列表弹窗 -->
+<div class="modal-overlay" id="tablesListModal">
+  <div class="modal modal-large">
+    <div class="modal-header">
+      <h3>数据库表列表</h3>
+      <button class="modal-close" id="tablesListClose">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="tables-list-container" id="tablesListContainer">
+        <div class="tables-loading">加载中...</div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="tablesListCancel">关闭</button>
+      <button type="button" class="btn-outline" id="tablesListRefreshBtn">刷新</button>
+    </div>
+  </div>
+</div>
+{{end}}

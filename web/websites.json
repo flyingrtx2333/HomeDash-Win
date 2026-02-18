@@ -2,20 +2,20 @@
   {
     "id": "b87fd150",
     "name": "DaoyinAthleteReel",
-    "path": "D:\\flaskProjects\\DaoyinAthleteReel",
+    "path": "D:\\FTP\\athleterell",
     "domain": "",
     "port": 6087,
     "pythonPath": "C:\\Users\\17489\\AppData\\Local\\Programs\\Python\\Python310\\python.exe",
     "venvPath": "D:\\flaskProjects\\DaoyinAthleteReel\\.venv",
     "framework": "fastapi",
-    "startCommand": "python app.py",
-    "workingDir": "D:\\flaskProjects\\DaoyinAthleteReel",
-    "requirementsTxt": "D:\\flaskProjects\\DaoyinAthleteReel\\requirements.txt",
+    "startCommand": "D:\\FTP\\athleterell\\.venv\\Scripts\\python.exe app.py",
+    "workingDir": "D:\\FTP\\athleterell",
+    "requirementsTxt": "D:\\FTP\\athleterell\\requirements.txt",
     "environmentVars": {},
     "autoStart": false,
     "enabled": false,
     "createdAt": 1771260437008,
-    "updatedAt": 1771260473309
+    "updatedAt": 1771404173021
   },
   {
     "id": "31a109e1",
@@ -26,13 +26,13 @@
     "pythonPath": "",
     "venvPath": "D:\\FTP\\FlyingrtxFast\\.venv",
     "framework": "fastapi",
-    "startCommand": "python app.py",
+    "startCommand": "D:\\FTP\\FlyingrtxFast\\.venv\\Scripts\\python.exe app.py",
     "workingDir": "D:\\FTP\\FlyingrtxFast",
     "requirementsTxt": "D:\\FTP\\FlyingrtxFast\\requirements.txt",
     "environmentVars": {},
-    "autoStart": false,
+    "autoStart": true,
     "enabled": true,
     "createdAt": 1771316564032,
-    "updatedAt": 1771316564032
+    "updatedAt": 1771404116045
   }
 ]
