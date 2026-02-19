@@ -110,7 +110,7 @@ type PythonVersion struct {
 }
 
 // AppVersion 当前应用版本号（与 release 保持一致）
-const AppVersion = "0.5.0"
+const AppVersion = "0.5.2"
 
 // UpdateCheckResponse 更新检查接口返回（与更新服务器约定一致）
 type UpdateCheckResponse struct {

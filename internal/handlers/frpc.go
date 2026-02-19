@@ -1,18 +1,23 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
-	"homedash/internal/ui"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
-	"syscall"
+	"sync"
+	"time"
 
+	"github.com/fatedier/frp/client"
+	"github.com/fatedier/frp/pkg/config"
+	"github.com/fatedier/frp/pkg/config/v1/validation"
+	"github.com/fatedier/frp/pkg/policy/featuregate"
+	"github.com/fatedier/frp/pkg/policy/security"
+	frplog "github.com/fatedier/frp/pkg/util/log"
 	"github.com/gin-gonic/gin"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/shirou/gopsutil/v3/process"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -40,26 +45,32 @@ type FrpcAuth struct {
 
 const frpcAutoStartName = "HomeDash-Frpc"
 
-const createNoWindow = 0x08000000 // CREATE_NO_WINDOW
+const createNoWindow = 0x08000000 // CREATE_NO_WINDOW (for use by other handlers e.g. websites)
 
-// getFrpcPaths 获取 frpc.exe 和 frpc.toml 路径
-// 使用当前工作目录的web
-func getFrpcPaths() (exePath, tomlPath string, err error) {
+// 内嵌 frp 客户端运行状态
+var (
+	frpcServiceMu   sync.Mutex
+	frpcService     *client.Service
+	frpcCancel      context.CancelFunc
+	frpcRunning     bool
+	frpcRunningPid  int32 // 本进程 PID，便于前端显示
+)
+
+// getFrpcPaths 获取 frpc.toml 路径（内嵌实现不再需要 exe）
+func getFrpcPaths() (tomlPath string, err error) {
 	exeDir := "."
 	if wd, e := os.Getwd(); e == nil {
 		exeDir = wd
 		exeDir = filepath.Join(exeDir, "web")
 		log.Printf("[FRPC] 使用工作目录: %s", wd)
 	}
-
-	exePath = filepath.Join(exeDir, "frpc.exe")
 	tomlPath = filepath.Join(exeDir, "frpc.toml")
-	return exePath, tomlPath, nil
+	return tomlPath, nil
 }
 
 // GetFrpcConfig 读取 frpc.toml 内容（原始字符串）
 func GetFrpcConfig(c *gin.Context) {
-	_, tomlPath, err := getFrpcPaths()
+	tomlPath, err := getFrpcPaths()
 	if err != nil {
 		c.JSON(500, gin.H{"error": "获取配置路径失败"})
 		return
@@ -80,7 +91,7 @@ func GetFrpcConfig(c *gin.Context) {
 
 // GetFrpcConfigParsed 读取并解析 frpc.toml，返回结构化 JSON（用于简单模式）
 func GetFrpcConfigParsed(c *gin.Context) {
-	_, tomlPath, err := getFrpcPaths()
+	tomlPath, err := getFrpcPaths()
 	if err != nil {
 		c.JSON(500, gin.H{"error": "获取配置路径失败"})
 		return
@@ -102,7 +113,6 @@ func GetFrpcConfigParsed(c *gin.Context) {
 		return
 	}
 
-	// 扁平化返回，方便前端使用
 	res := gin.H{
 		"serverAddr": cfg.ServerAddr,
 		"serverPort": cfg.ServerPort,
@@ -116,7 +126,6 @@ func GetFrpcConfigParsed(c *gin.Context) {
 }
 
 // UpdateFrpcConfig 保存 frpc.toml 内容
-// 支持两种格式：1) config 原始 toml 字符串（专业模式） 2) serverAddr/serverPort/token/proxies 结构化（简单模式）
 func UpdateFrpcConfig(c *gin.Context) {
 	var rawReq struct {
 		Config     string      `json:"config"`
@@ -132,10 +141,8 @@ func UpdateFrpcConfig(c *gin.Context) {
 
 	var tomlBytes []byte
 	if rawReq.Config != "" {
-		// 专业模式：直接使用原始 toml
 		tomlBytes = []byte(rawReq.Config)
 	} else {
-		// 简单模式：从结构化数据生成 toml
 		cfg := FrpcConfigParsed{
 			ServerAddr: rawReq.ServerAddr,
 			ServerPort: rawReq.ServerPort,
@@ -153,13 +160,12 @@ func UpdateFrpcConfig(c *gin.Context) {
 		}
 	}
 
-	_, tomlPath, err := getFrpcPaths()
+	tomlPath, err := getFrpcPaths()
 	if err != nil {
 		c.JSON(500, gin.H{"error": "获取配置路径失败"})
 		return
 	}
 
-	// 确保目录存在
 	dir := filepath.Dir(tomlPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		c.JSON(500, gin.H{"error": "创建配置目录失败"})
@@ -174,24 +180,11 @@ func UpdateFrpcConfig(c *gin.Context) {
 	c.JSON(200, gin.H{"success": true})
 }
 
-// checkFrpcProcess 检测 frpc 进程状态
+// checkFrpcProcess 检测内嵌 frpc 是否在运行
 func checkFrpcProcess() (running bool, pid int32) {
-	processes, err := process.Processes()
-	if err != nil {
-		return false, 0
-	}
-
-	for _, p := range processes {
-		name, err := p.Name()
-		if err != nil {
-			continue
-		}
-		if strings.EqualFold(name, "frpc.exe") {
-			return true, p.Pid
-		}
-	}
-
-	return false, 0
+	frpcServiceMu.Lock()
+	defer frpcServiceMu.Unlock()
+	return frpcRunning, frpcRunningPid
 }
 
 // GetFrpcStatus 获取 frpc 运行状态
@@ -200,78 +193,114 @@ func GetFrpcStatus(c *gin.Context) {
 	c.JSON(200, gin.H{"running": running, "pid": pid})
 }
 
-// StartFrpc 启动 frpc
+// startFrpcService 从 tomlPath 加载配置并启动内嵌 frp 客户端（调用方需已持有 frpcServiceMu）
+func startFrpcService(tomlPath string) error {
+	cfg, proxyCfgs, visitorCfgs, _, err := config.LoadClientConfig(tomlPath, true)
+	if err != nil {
+		return err
+	}
+
+	if len(cfg.FeatureGates) > 0 {
+		if err := featuregate.SetFromMap(cfg.FeatureGates); err != nil {
+			return err
+		}
+	}
+
+	unsafeFeatures := security.NewUnsafeFeatures(nil)
+	warning, err := validation.ValidateAllClientConfig(cfg, proxyCfgs, visitorCfgs, unsafeFeatures)
+	if warning != nil {
+		log.Printf("[FRPC] 配置警告: %v", warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	frplog.InitLogger(cfg.Log.To, cfg.Log.Level, int(cfg.Log.MaxDays), cfg.Log.DisablePrintColor)
+
+	svr, err := client.NewService(client.ServiceOptions{
+		Common:         cfg,
+		ProxyCfgs:      proxyCfgs,
+		VisitorCfgs:    visitorCfgs,
+		UnsafeFeatures:  unsafeFeatures,
+		ConfigFilePath:  tomlPath,
+	})
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	frpcService = svr
+	frpcCancel = cancel
+	frpcRunning = true
+	frpcRunningPid = int32(os.Getpid())
+
+	go func() {
+		defer func() {
+			frpcServiceMu.Lock()
+			frpcRunning = false
+			frpcRunningPid = 0
+			frpcService = nil
+			frpcCancel = nil
+			frpcServiceMu.Unlock()
+		}()
+		if runErr := svr.Run(ctx); runErr != nil && runErr != context.Canceled {
+			log.Printf("[FRPC] 服务退出: %v", runErr)
+		}
+	}()
+	return nil
+}
+
+// StartFrpc 启动内嵌 frpc
 func StartFrpc(c *gin.Context) {
 	log.Printf("[FRPC] StartFrpc 被调用")
-	exePath, tomlPath, err := getFrpcPaths()
+	tomlPath, err := getFrpcPaths()
 	if err != nil {
 		log.Printf("[FRPC] 获取路径失败: %v", err)
 		c.JSON(500, gin.H{"error": "获取路径失败"})
 		return
 	}
 
-	if _, err := os.Stat(exePath); os.IsNotExist(err) {
-		log.Printf("[FRPC] frpc.exe 不存在: %s", exePath)
-		c.JSON(400, gin.H{"error": "frpc.exe 不存在，请将 frpc.exe 放置于程序目录"})
+	if _, err := os.Stat(tomlPath); os.IsNotExist(err) {
+		log.Printf("[FRPC] 配置文件不存在: %s", tomlPath)
+		c.JSON(400, gin.H{"error": "frpc.toml 不存在，请先保存配置"})
 		return
 	}
 
-	if running, pid := checkFrpcProcess(); running {
-		log.Printf("[FRPC] frpc 已在运行, pid=%d", pid)
+	frpcServiceMu.Lock()
+	if frpcRunning {
+		frpcServiceMu.Unlock()
+		log.Printf("[FRPC] frpc 已在运行")
 		c.JSON(400, gin.H{"error": "frpc 已在运行中"})
 		return
 	}
 
-	cmd := ui.HideWindow(exePath, "-c", tomlPath)
-	cmd.Dir = filepath.Dir(exePath)
-	if runtime.GOOS == "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			HideWindow:    true,
-			CreationFlags: createNoWindow,
-		}
-	}
-	log.Printf("[FRPC] 执行启动: %s -c %s, Dir=%s", exePath, tomlPath, cmd.Dir)
-	if err := cmd.Start(); err != nil {
+	err = startFrpcService(tomlPath)
+	frpcServiceMu.Unlock()
+
+	if err != nil {
 		log.Printf("[FRPC] 启动失败: %v", err)
 		c.JSON(500, gin.H{"error": "启动失败: " + err.Error()})
 		return
 	}
-	log.Printf("[FRPC] 启动成功, pid=%d", cmd.Process.Pid)
-
+	log.Printf("[FRPC] 启动成功（内嵌 fatedier/frp）")
 	c.JSON(200, gin.H{"success": true})
 }
 
-// StopFrpc 停止 frpc
+// StopFrpc 停止内嵌 frpc
 func StopFrpc(c *gin.Context) {
-	running, pid := checkFrpcProcess()
-	if !running {
+	frpcServiceMu.Lock()
+	svr := frpcService
+	cancel := frpcCancel
+	frpcServiceMu.Unlock()
+
+	if svr == nil || cancel == nil {
 		c.JSON(200, gin.H{"success": true, "message": "frpc 未运行"})
 		return
 	}
 
-	if err := stopFrpcProcess(pid); err != nil {
-		c.JSON(500, gin.H{"error": "停止失败: " + err.Error()})
-		return
-	}
-
+	svr.GracefulClose(500 * time.Millisecond)
+	cancel()
 	c.JSON(200, gin.H{"success": true})
-}
-
-func stopFrpcProcess(pid int32) error {
-	if runtime.GOOS == "windows" {
-		cmd := ui.HideWindow("taskkill", "/PID", fmt.Sprintf("%d", pid))
-		if err := cmd.Run(); err != nil {
-			cmd = ui.HideWindow("taskkill", "/F", "/PID", fmt.Sprintf("%d", pid))
-			return cmd.Run()
-		}
-		return nil
-	}
-
-	proc, err := process.NewProcess(pid)
-	if err != nil {
-		return err
-	}
-	return proc.Terminate()
 }
 
 // GetFrpcAutoStart 获取 frpc 开机自启状态
@@ -295,7 +324,7 @@ func isFrpcAutoStartEnabled() bool {
 	return err == nil
 }
 
-// UpdateFrpcAutoStart 设置 frpc 开机自启
+// UpdateFrpcAutoStart 设置 frpc 开机自启（仅记录偏好，由本进程启动时自动拉起内嵌 frpc）
 func UpdateFrpcAutoStart(c *gin.Context) {
 	log.Printf("[FRPC] UpdateFrpcAutoStart 被调用")
 	var req struct {
@@ -313,41 +342,25 @@ func UpdateFrpcAutoStart(c *gin.Context) {
 		return
 	}
 
-	exePath, tomlPath, err := getFrpcPaths()
-	if err != nil {
-		c.JSON(500, gin.H{"error": "获取路径失败"})
-		return
-	}
-
-	if req.AutoStart {
-		if _, err := os.Stat(exePath); os.IsNotExist(err) {
-			log.Printf("[FRPC] 启用失败: frpc.exe 不存在 %s", exePath)
-			c.JSON(400, gin.H{"error": "frpc.exe 不存在，请先将 frpc.exe 放置于程序目录"})
-			return
-		}
-	}
-
-	if err := setFrpcAutoStart(exePath, tomlPath, req.AutoStart); err != nil {
+	if err := setFrpcAutoStart(req.AutoStart); err != nil {
 		log.Printf("[FRPC] 设置注册表失败: %v", err)
 		c.JSON(500, gin.H{"error": "设置失败: " + err.Error()})
 		return
 	}
 	log.Printf("[FRPC] 开机自启已%s", map[bool]string{true: "启用", false: "禁用"}[req.AutoStart])
 
-	// 启用时若 frpc 未运行，立即启动
 	if req.AutoStart {
 		if running, _ := checkFrpcProcess(); !running {
-			log.Printf("[FRPC] 启用后尝试立即启动 frpc")
-			cmd := ui.HideWindow(exePath, "-c", tomlPath)
-			cmd.Dir = filepath.Dir(exePath)
-			cmd.SysProcAttr = &syscall.SysProcAttr{
-				HideWindow:    true,
-				CreationFlags: createNoWindow,
-			}
-			if err := cmd.Start(); err != nil {
-				log.Printf("[FRPC] 立即启动失败: %v", err)
-			} else {
-				log.Printf("[FRPC] 立即启动成功, pid=%d", cmd.Process.Pid)
+			log.Printf("[FRPC] 启用后尝试立即启动内嵌 frpc")
+			tomlPath, err := getFrpcPaths()
+			if err == nil {
+				if _, statErr := os.Stat(tomlPath); statErr == nil {
+					frpcServiceMu.Lock()
+					if !frpcRunning {
+						_ = startFrpcService(tomlPath)
+					}
+					frpcServiceMu.Unlock()
+				}
 			}
 		}
 	}
@@ -355,7 +368,7 @@ func UpdateFrpcAutoStart(c *gin.Context) {
 	c.JSON(200, gin.H{"success": true})
 }
 
-func setFrpcAutoStart(exePath, tomlPath string, enabled bool) error {
+func setFrpcAutoStart(enabled bool) error {
 	k, err := registry.OpenKey(registry.CURRENT_USER, appAutoStartKey, registry.SET_VALUE)
 	if err != nil {
 		return fmt.Errorf("打开注册表失败: %v", err)
@@ -363,23 +376,12 @@ func setFrpcAutoStart(exePath, tomlPath string, enabled bool) error {
 	defer k.Close()
 
 	if enabled {
-		absExe, err := filepath.Abs(exePath)
-		if err != nil {
-			return err
-		}
-		absToml, err := filepath.Abs(tomlPath)
-		if err != nil {
-			return err
-		}
-		// 带引号避免路径含空格出错
-		value := fmt.Sprintf(`"%s" -c "%s"`, absExe, absToml)
-		return k.SetStringValue(frpcAutoStartName, value)
+		return k.SetStringValue(frpcAutoStartName, "1")
 	}
-
 	return k.DeleteValue(frpcAutoStartName)
 }
 
-// MaybeLaunchFrpcOnStartup 若已启用开机自启，则启动 frpc
+// MaybeLaunchFrpcOnStartup 若已启用开机自启，则启动内嵌 frpc
 func MaybeLaunchFrpcOnStartup() {
 	log.Printf("[FRPC] MaybeLaunchFrpcOnStartup 被调用")
 	if runtime.GOOS != "windows" {
@@ -390,33 +392,30 @@ func MaybeLaunchFrpcOnStartup() {
 		log.Printf("[FRPC] 开机自启未启用，跳过")
 		return
 	}
-	if running, pid := checkFrpcProcess(); running {
-		log.Printf("[FRPC] frpc 已在运行, pid=%d", pid)
+	if running, _ := checkFrpcProcess(); running {
+		log.Printf("[FRPC] frpc 已在运行")
 		return
 	}
 
-	exePath, tomlPath, err := getFrpcPaths()
+	tomlPath, err := getFrpcPaths()
 	if err != nil {
 		log.Printf("[FRPC] 获取路径失败: %v", err)
 		return
 	}
-	if _, err := os.Stat(exePath); os.IsNotExist(err) {
-		log.Printf("[FRPC] frpc.exe 不存在: %s", exePath)
+	if _, err := os.Stat(tomlPath); os.IsNotExist(err) {
+		log.Printf("[FRPC] 配置文件不存在: %s", tomlPath)
 		return
 	}
 
-	cmd := ui.HideWindow(exePath, "-c", tomlPath)
-	cmd.Dir = filepath.Dir(exePath)
-	if runtime.GOOS == "windows" {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			HideWindow:    true,
-			CreationFlags: createNoWindow,
-		}
+	frpcServiceMu.Lock()
+	if !frpcRunning {
+		err = startFrpcService(tomlPath)
 	}
-	log.Printf("[FRPC] 启动时自动运行: %s -c %s", exePath, tomlPath)
-	if err := cmd.Start(); err != nil {
+	frpcServiceMu.Unlock()
+
+	if err != nil {
 		log.Printf("[FRPC] 启动失败: %v", err)
 		return
 	}
-	log.Printf("[FRPC] 启动成功, pid=%d", cmd.Process.Pid)
+	log.Printf("[FRPC] 开机自启已启动内嵌 frpc")
 }
