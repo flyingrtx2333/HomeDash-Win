@@ -162,6 +162,7 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 
 		// 日志
 		api.GET("/websites/:id/logs", handlers.GetWebsiteLogs)
+		api.POST("/websites/:id/logs/clear", handlers.ClearWebsiteLogs)
 		router.GET("/ws/websites/:id/logs", handlers.StreamWebsiteLogs)
 	}
 

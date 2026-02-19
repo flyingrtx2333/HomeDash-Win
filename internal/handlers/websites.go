@@ -11,15 +11,19 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 )
 
 var (
@@ -551,6 +555,7 @@ func InstallRequirements(c *gin.Context) {
 		// 不支持流式则回退到同步输出（仍返回 text/plain 供前端统一处理）
 		cmdSync := ui.HideWindow(installArgs[0], installArgs[1:]...)
 		cmdSync.Dir = website.Path
+		cmdSync.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
 		cmdSync.SysProcAttr = &syscall.SysProcAttr{
 			HideWindow:    true,
 			CreationFlags: createNoWindow,
@@ -573,6 +578,7 @@ func InstallRequirements(c *gin.Context) {
 
 	cmd := ui.HideWindow(installArgs[0], installArgs[1:]...)
 	cmd.Dir = website.Path
+	cmd.Env = append(os.Environ(), "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
 	cmd.Stdout = streamWriter
 	cmd.Stderr = streamWriter
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -638,16 +644,16 @@ func StartWebsite(c *gin.Context) {
 
 	cmd.Dir = workingDir
 
-	// 设置环境变量
+	// 设置环境变量（含 UTF-8，避免 Windows 下日志乱码）
 	env := os.Environ()
 	for k, v := range website.EnvironmentVars {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
-	// 设置FLASK_APP, PORT等常用环境变量
 	if website.Framework == "flask" {
 		env = append(env, fmt.Sprintf("FLASK_RUN_PORT=%d", website.Port))
 	}
 	env = append(env, fmt.Sprintf("PORT=%d", website.Port))
+	env = append(env, "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1") // Python 子进程 stdout/stderr 使用 UTF-8
 	cmd.Env = env
 
 	// 创建日志目录
@@ -883,7 +889,6 @@ func GetWebsiteLogs(c *gin.Context) {
 	logDir := filepath.Join(website.Path, "logs")
 	logFile := filepath.Join(logDir, fmt.Sprintf("%s.log", id))
 
-	// 读取日志文件
 	data, err := os.ReadFile(logFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -894,7 +899,62 @@ func GetWebsiteLogs(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{"logs": string(data)})
+	// 日志文件可能为 ANSI/GBK（Windows 子进程默认），解码为 UTF-8 再返回
+	c.JSON(200, gin.H{"logs": decodeLogContent(data)})
+}
+
+// ClearWebsiteLogs 清空网站项目日志文件
+func ClearWebsiteLogs(c *gin.Context) {
+	id := c.Param("id")
+	websites := loadWebsites()
+
+	var website *PythonWebsite
+	for _, w := range websites {
+		if w.ID == id {
+			website = &w
+			break
+		}
+	}
+
+	if website == nil {
+		c.JSON(404, gin.H{"error": "项目不存在"})
+		return
+	}
+
+	logDir := filepath.Join(website.Path, "logs")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		c.JSON(500, gin.H{"error": "创建日志目录失败"})
+		return
+	}
+	logFile := filepath.Join(logDir, fmt.Sprintf("%s.log", id))
+
+	f, err := os.OpenFile(logFile, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "清空日志失败: " + err.Error()})
+		return
+	}
+	f.Close()
+
+	c.JSON(200, gin.H{"success": true})
+}
+
+// decodeLogContent 将日志文件内容解码为 UTF-8（Windows 下子进程常输出 GBK/ANSI）
+func decodeLogContent(raw []byte) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	if utf8.Valid(raw) {
+		return string(raw)
+	}
+	if runtime.GOOS != "windows" {
+		return string(raw)
+	}
+	decoder := simplifiedchinese.GBK.NewDecoder()
+	utf8Bytes, _, err := transform.Bytes(decoder, raw)
+	if err != nil {
+		return string(raw)
+	}
+	return string(utf8Bytes)
 }
 
 // StreamWebsiteLogs 流式输出网站项目日志（WebSocket）
@@ -943,9 +1003,9 @@ func StreamWebsiteLogs(c *gin.Context) {
 	file.Seek(0, io.SeekEnd)
 	reader := bufio.NewReader(file)
 
-	// 持续读取并发送
+	// 持续读取并发送（按行解码 ANSI/GBK → UTF-8）
 	for {
-		line, err := reader.ReadString('\n')
+		lineBytes, err := reader.ReadBytes('\n')
 		if err != nil {
 			if err == io.EOF {
 				time.Sleep(500 * time.Millisecond)
@@ -953,6 +1013,7 @@ func StreamWebsiteLogs(c *gin.Context) {
 			}
 			break
 		}
+		line := decodeLogContent(lineBytes)
 
 		if err := conn.WriteJSON(gin.H{"log": line}); err != nil {
 			break

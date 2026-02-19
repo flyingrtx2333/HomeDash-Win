@@ -1062,6 +1062,7 @@ function initWebsiteEvents() {
     const logsClose = document.getElementById('websiteLogsClose');
     const logsCancel = document.getElementById('websiteLogsCancel');
     const logsRefresh = document.getElementById('websiteLogsRefreshBtn');
+    const logsClear = document.getElementById('websiteLogsClearBtn');
     const pathBrowseBtn = document.getElementById('websitePathBrowseBtn');
     const pathInput = document.getElementById('websitePath');
 
@@ -1139,6 +1140,22 @@ function initWebsiteEvents() {
     if (logsCancel) logsCancel.addEventListener('click', closeWebsiteLogs);
     if (logsRefresh) logsRefresh.addEventListener('click', () => {
         if (currentWebsiteId) refreshWebsiteLogs(currentWebsiteId);
+    });
+    if (logsClear) logsClear.addEventListener('click', async () => {
+        if (!currentWebsiteId) return;
+        if (!confirm('确定要清空当前项目的日志吗？清空后无法恢复。')) return;
+        try {
+            const response = await fetch(`/api/websites/${currentWebsiteId}/logs/clear`, { method: 'POST' });
+            const result = await response.json();
+            if (response.ok) {
+                if (typeof showToast === 'function') showToast('日志已清空', 'success');
+                await refreshWebsiteLogs(currentWebsiteId);
+            } else {
+                if (typeof showToast === 'function') showToast(result.error || '清空失败', 'error');
+            }
+        } catch (e) {
+            if (typeof showToast === 'function') showToast('清空失败', 'error');
+        }
     });
     // 创建虚拟环境弹窗事件
     const createVenvModal = document.getElementById('createVenvModal');
