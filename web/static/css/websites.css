@@ -44,7 +44,7 @@
     max-height: 50vh;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.04);
+    scrollbar-color: var(--scrollbar-color);
   }
   
   .websites-table-body::-webkit-scrollbar {
@@ -431,12 +431,6 @@
     border-color: rgba(255, 255, 255, 0.15);
   }
   
-  /* Firefox 滚动条 */
-  .modal-body {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(59, 130, 246, 0.5) rgba(255, 255, 255, 0.05);
-  }
-  
   .form-actions {
     flex-shrink: 0;
     padding-top: 12px;
@@ -818,8 +812,6 @@
 
 /* ========== 安装依赖日志弹窗 ========== */
 .install-logs-container {
-  max-height: 50vh;
-  overflow-y: auto;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 8px;
   padding: 12px;

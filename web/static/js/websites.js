@@ -317,7 +317,9 @@ async function startWebsite(id) {
             }
             renderWebsites();
             // 延迟再请求一次状态接口，确保与实际进程一致
-            setTimeout(() => checkWebsiteStatus(id), 800);
+            setTimeout(() => checkWebsiteStatus(id), 1800);
+            //打开日志
+            viewWebsiteLogs(id);
         } else {
             if (typeof showToast === 'function') showToast(result.error || '启动失败', 'error');
         }
@@ -501,6 +503,7 @@ async function viewWebsiteLogs(id) {
 
     modal.classList.add('active');
     await refreshWebsiteLogs(id);
+    logsScrollToBottom();
 }
 
 // 刷新日志
@@ -537,6 +540,13 @@ function closeWebsiteLogs() {
         logsWs.close();
         logsWs = null;
     }
+}
+
+// 日志滑动到底部
+function logsScrollToBottom() {
+    const websiteLogsModal = document.getElementById('websiteLogsModal');
+    const modalBody = websiteLogsModal.querySelector('.modal-body');
+    modalBody.scrollTop = modalBody.scrollHeight;
 }
 
 // HTML转义

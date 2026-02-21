@@ -1,17 +1,15 @@
-// terminal.js
 
-import { Terminal } from 'xterm'; // 假设已安装 xterm
-import { FitAddon } from 'xterm-addon-fit'; // 新增：引入 FitAddon
+// 正确导入：使用 @xterm/ 前缀
+import { Terminal } from 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/+esm';
+import { FitAddon } from 'https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/+esm';
 
 let terminalWs = null;
-let term = null; // xterm 实例
-let fitAddon = null; // FitAddon 实例
-let currentLine = ''; // 用于本地回显的缓冲区（可选，xterm通常由后端回显）
+let term = null;
+let fitAddon = null;
 
 function connectTerminal() {
-    console.log('Connecting to terminal...');
-    
-    // 如果已经连接，先断开
+    console.log('正在连接到终端...');
+
     if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
         terminalWs.close();
     }
@@ -21,17 +19,16 @@ function connectTerminal() {
 
     updateTerminalStatus('connecting');
 
-    // 初始化 xterm.js
     if (!term) {
         term = new Terminal({
-            cursorBlink: true,   // 光标闪烁
-            fontSize: 14,        // 字体大小
-            fontFamily: 'Consolas, "Courier New", monospace', // 字体
+            cursorBlink: true,
+            fontSize: 14,
+            fontFamily: 'Consolas, "Courier New", monospace',
             theme: {
-                background: '#1e1e1e', // 背景色
-                foreground: '#d4d4d4', // 前景色
-                cursor: '#ffffff',     // 光标颜色
-                selection: 'rgba(255, 255, 255, 0.3)', // 选中背景
+                background: '#1e1e1e',
+                foreground: '#d4d4d4',
+                cursor: '#ffffff',
+                selection: 'rgba(255, 255, 255, 0.3)',
                 black: '#000000',
                 red: '#cd3131',
                 green: '#0dbc79',
@@ -48,23 +45,22 @@ function connectTerminal() {
                 brightMagenta: '#d670d6',
                 brightCyan: '#29b8db',
                 brightWhite: '#e5e5e5'
-            }
+            },
+            allowTransparency: false,
+            scrollback: 5000,
+            convertEol: true
         });
 
-        // 新增：加载 FitAddon
         fitAddon = new FitAddon();
         term.loadAddon(fitAddon);
 
-        // 将终端挂载到 DOM
         const container = document.getElementById('terminalContainer');
         term.open(container);
-        
-        // 自适应大小（使用 fitAddon）
+
         window.addEventListener('resize', () => {
             if (fitAddon) fitAddon.fit();
         });
 
-        // 新增：监听 resize 事件并发送到后端
         term.onResize(({ cols, rows }) => {
             if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
                 terminalWs.send(JSON.stringify({
@@ -74,68 +70,124 @@ function connectTerminal() {
                 }));
             }
         });
+
+        term.onData(data => {
+            if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
+                console.log('发送data:', data);
+                terminalWs.send(data);
+            }
+        });
     }
-    
-    // 清空终端屏幕
+
     term.clear();
 
-    // 建立 WebSocket 连接
     terminalWs = new WebSocket(wsUrl);
 
     terminalWs.onopen = () => {
         updateTerminalStatus('connected');
         term.writeln("\x1b[32m[系统] 已连接到远程终端...\x1b[0m");
-        
-        // 聚焦终端
         term.focus();
-        
-        // 新增：发送初始大小
-        if (fitAddon) fitAddon.fit();
-        terminalWs.send(JSON.stringify({
-            type: "resize",
-            cols: term.cols,
-            rows: term.rows
-        }));
-        
-        // 处理从浏览器发往服务器的数据 (用户输入)
-        term.onData(data => {
-            if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
-                terminalWs.send(data);
+
+        const doFitAndResize = () => {
+            if (fitAddon) {
+                fitAddon.fit();
+                if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
+                    terminalWs.send(JSON.stringify({
+                        type: "resize",
+                        cols: term.cols,
+                        rows: term.rows
+                    }));
+                }
             }
-        });
+        };
+
+        // 多次尝试，确保首次加载成功
+        doFitAndResize();
+        setTimeout(doFitAndResize, 100);
+        setTimeout(doFitAndResize, 300);
+        setTimeout(doFitAndResize, 600);
     };
 
     terminalWs.onmessage = (event) => {
-        // 接收服务器数据并写入终端
-        // xterm.js 会自动处理 \n \r \b 以及 ANSI 颜色代码
-        if (event.data instanceof Blob) {
-            // 处理 Blob 数据 (某些服务器配置可能发送 Blob)
+        let data = event.data;
+        if (data instanceof Blob) {
             const reader = new FileReader();
-            reader.onload = function() {
-                term.write(reader.result);
-            };
-            reader.readAsText(event.data);
+            reader.onload = () => term.write(reader.result);
+            reader.readAsText(data);
         } else {
-            term.write(event.data);
+            term.write(data);
         }
     };
 
     terminalWs.onclose = (event) => {
         updateTerminalStatus('disconnected');
-        term.writeln("\x1b[31m[系统] 连接已断开\x1b[0m");
+        term.writeln("\r\n\x1b[31m[系统] 连接已断开 (code: " + event.code + ")\x1b[0m");
+        console.log('WebSocket closed:', event);
     };
 
     terminalWs.onerror = (error) => {
         updateTerminalStatus('error');
-        term.writeln("\x1b[31m[系统] 连接错误\x1b[0m");
+        term.writeln("\r\n\x1b[31m[系统] 连接错误，请检查网络或服务器\x1b[0m");
         console.error('WebSocket Error:', error);
     };
+
+    // 监听容器大小变化，自动 fit
+    const resizeObserver = new ResizeObserver(() => {
+        if (fitAddon) {
+            fitAddon.fit();
+            // 可选：如果 WS 已连接，发送 resize
+            if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
+                terminalWs.send(JSON.stringify({
+                    type: "resize",
+                    cols: term.cols,
+                    rows: term.rows
+                }));
+            }
+        }
+    });
+    resizeObserver.observe(document.getElementById('terminalContainer'));
+
+    //venv处理
+    // 读取 venvPath
+    let venvPath = '';
+    try {
+        const context = JSON.parse(sessionStorage.getItem('websiteTerminalContext') || '{}');
+        const projectPath = context.path || '';
+        venvPath = context.venvPath || '';  
+        console.log(venvPath)
+        // 如果项目不在C盘，要换盘符到项目所在盘符
+        // if (!projectPath.startsWith('C:')) {
+        //     const changecmd = `chdir /d ${projectPath.split(':')[0]}:`;
+        //     // terminalWs.send(changecmd + '\r\n');
+        //     term.writeln(changecmd);
+        //     console.log('自动切换盘符:', changecmd);
+        // }
+        if (venvPath) {
+            let activateCmd = '';
+            activateCmd = `${venvPath.replace(/\//g, '\\')}\\Scripts\\python.exe ${venvPath.replace(/\//g, '\\')}\\Scripts\\pip.exe`;
+            setTimeout(() => {
+                console.log('切换到项目目录:', projectPath);
+                terminalWs.send(`cd ${projectPath}\r`);
+                // term.writeln(`\x1b[36m[自动切换] 执行: cd ${projectPath}\x1b[0m`);/*  */
+                terminalWs.send(activateCmd);
+                // term.writeln(`\x1b[36m[自动激活] 执行: ${activateCmd}\x1b[0m`);
+                // 1.5 秒后检查 python 版本
+                // setTimeout(() => {
+                //     terminalWs.send('python --version\r\n');
+                // }, 1500);
+                sessionStorage.removeItem('websiteTerminalContext');
+            }, 1500);  // 等待 shell 就绪
+        }
+    } catch (e) {
+        console.warn('读取 venvPath 失败:', e);
+    }
+
 }
 
 function updateTerminalStatus(status) {
     const statusEl = document.getElementById('terminalStatus');
     if (!statusEl) return;
-    
+
     const dot = statusEl.querySelector('.status-dot');
     const text = statusEl.querySelector('span:last-child');
 
@@ -155,20 +207,20 @@ function updateTerminalStatus(status) {
             dot.classList.add('error');
             text.textContent = '连接错误';
             break;
+        default:
+            text.textContent = '未知状态';
     }
 }
 
-// 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
-    // 绑定按钮事件
     const connectBtn = document.getElementById('connectTerminalBtn');
     if (connectBtn) {
         connectBtn.addEventListener('click', () => {
-            if (term) term.clear(); // 重连时清屏
+            if (term) term.clear();
             connectTerminal();
         });
     }
-
-    // 自动连接
-    connectTerminal();
+    connectTerminal();  // 自动连接，可根据需要注释
 });
+
+window.connectTerminal = connectTerminal;

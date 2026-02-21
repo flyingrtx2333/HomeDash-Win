@@ -44,7 +44,7 @@
     max-height: 50vh;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.04);
+    scrollbar-color: var(--scrollbar-color);
 }
 
 .database-table-body::-webkit-scrollbar {

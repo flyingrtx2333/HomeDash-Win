@@ -20,6 +20,8 @@
   --text-muted: rgba(148, 163, 184, 0.6);
   --input-bg: rgba(15, 23, 42, 0.5);
   --input-border: rgba(255, 255, 255, 0.1);
+
+  --scrollbar-color:rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.04);
 }
 
 [data-theme="light"] {
@@ -1924,7 +1926,7 @@ textarea.form-control {
 }
 .process-table-container .table-body {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.04);
+  scrollbar-color: var(--scrollbar-color);
 }
 
 .table-header {
@@ -3581,12 +3583,6 @@ textarea.form-control {
 
 .workflow-popup .modal-body::-webkit-scrollbar-thumb:hover {
   background: rgba(129, 140, 248, 0.5);
-}
-
-/* Firefox 滚动条 */
-.workflow-popup .modal-body {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(129, 140, 248, 0.3) rgba(255, 255, 255, 0.05);
 }
 
 .workflow-popup .modal-footer {

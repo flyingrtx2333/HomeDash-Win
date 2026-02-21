@@ -111,7 +111,7 @@
 }
 [data-theme="light"] .process-table-container .table-body,
 [data-theme="fresh"] .process-table-container .table-body {
-  scrollbar-color: rgba(15, 23, 42, 0.22) rgba(15, 23, 42, 0.06);
+  scrollbar-color: var(--scrollbar-color);
 }
 
 /* ========== section-header 操作按钮组 ========== */
@@ -144,22 +144,6 @@
   border: 1px solid rgba(59, 130, 246, 0.15);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(59, 130, 246, 0.1);
   backdrop-filter: blur(10px);
-}
-
-.modal-large .modal-header {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.05) 100%);
-  border-bottom: 1px solid rgba(59, 130, 246, 0.15);
-  padding: 20px 24px;
-}
-
-.modal-large .modal-header h3 {
-  color: #1e40af;
-  font-weight: 600;
-  font-size: 20px;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .modal-large .modal-body {
@@ -201,18 +185,6 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(59, 130, 246, 0.15);
 }
 
-[data-theme="dark"] .modal-large .modal-header {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%);
-  border-bottom: 1px solid rgba(59, 130, 246, 0.25);
-}
-
-[data-theme="dark"] .modal-large .modal-header h3 {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
 [data-theme="dark"] .modal-large .form-group label {
   color: #e2e8f0;
 }
@@ -238,18 +210,6 @@
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 253, 250, 0.98) 100%);
   border: 1px solid rgba(13, 148, 136, 0.2);
   box-shadow: 0 20px 60px rgba(13, 148, 136, 0.12), 0 0 0 1px rgba(13, 148, 136, 0.1);
-}
-
-[data-theme="fresh"] .modal-large .modal-header {
-  background: linear-gradient(135deg, rgba(13, 148, 136, 0.1) 0%, rgba(20, 184, 166, 0.08) 100%);
-  border-bottom: 1px solid rgba(13, 148, 136, 0.2);
-}
-
-[data-theme="fresh"] .modal-large .modal-header h3 {
-  background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 [data-theme="fresh"] .modal-large .form-control {
