@@ -9,8 +9,8 @@
 HomeDash Win 是一个专为 Windows 家庭服务器设计的综合看板工具，提供**服务入口管理**、**实时系统监控**、**文件管理**、**Web 终端**和 **Docker 管理**等功能，让你轻松管理家庭服务器上的所有服务。
 ![HomeDash 首页](assets/index.png)
 
-## 🆕 更新日志 (V0.5.2)
-- 采用 fatedier/frp库做内网穿透，不再用frpc.exe
+## 🆕 更新日志 (V0.5.4)
+- python网站环境管理优化，增加常见位置conda环境扫描
 
 
 ---

@@ -565,6 +565,8 @@
     flex-direction: column;
     height: 100%;
     min-height: 400px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-color);
   }
   
   .path-browser-header {
@@ -614,7 +616,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 300px;
-    max-height: 50vh;
+    max-height: 40vh;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     padding: 8px;

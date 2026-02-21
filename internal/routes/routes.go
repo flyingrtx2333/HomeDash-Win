@@ -150,6 +150,9 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 		// 目录浏览（用于文件选择器）
 		api.GET("/websites/browse", handlers.BrowseDirectory)
 
+		// 环境选项（项目 .venv + conda 列表）
+		api.GET("/websites/envs", handlers.GetWebsiteEnvOptions)
+
 		// 虚拟环境
 		api.POST("/websites/:id/venv/create", handlers.CreateVenv)
 		api.DELETE("/websites/:id/venv", handlers.DeleteVenv)

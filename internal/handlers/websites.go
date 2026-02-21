@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"homedash/internal/ui"
 	"io"
@@ -344,6 +345,128 @@ func getPythonVersion(pythonPath string) string {
 	return version
 }
 
+// envOption 环境选项（供前端下拉使用）
+type envOption struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
+}
+
+// GetWebsiteEnvOptions 获取可选环境列表：项目 .venv + 本机 conda 环境
+func GetWebsiteEnvOptions(c *gin.Context) {
+	projectPath := strings.TrimSpace(c.Query("projectPath"))
+	options := []envOption{{Value: "", Label: "无 / 系统 Python"}}
+
+	if projectPath != "" {
+		projectVenv := filepath.Join(filepath.Clean(projectPath), ".venv")
+		label := "项目 .venv"
+		if _, err := os.Stat(filepath.Join(projectVenv, "Scripts", "python.exe")); err == nil {
+			label = "项目 .venv (已存在)"
+		} else if _, err := os.Stat(filepath.Join(projectVenv, "bin", "python")); err == nil {
+			label = "项目 .venv (已存在)"
+		} else {
+			label = "项目 .venv"
+		}
+		options = append(options, envOption{Value: projectVenv, Label: label})
+	}
+
+	// 本机 conda 环境（多方式尝试，部分电脑 PATH 中无 conda）
+	condaEnvs := listCondaEnvs()
+	log.Printf("[选择环境] conda 扫描到 %d 个环境", len(condaEnvs))
+	for _, p := range condaEnvs {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		name := filepath.Base(p)
+		if !strings.Contains(strings.ReplaceAll(p, "/", "\\"), "envs"+string(filepath.Separator)) {
+			name = "base"
+		}
+		options = append(options, envOption{Value: p, Label: "conda: " + name})
+	}
+
+	c.JSON(200, gin.H{"options": options})
+}
+
+// listCondaEnvs 尝试多种方式获取 conda 环境列表，并打日志便于排查
+func listCondaEnvs() (envs []string) {
+	tryConda := func(name string, args []string) ([]byte, error) {
+		cmd := exec.Command(name, args...)
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		out, err := cmd.Output()
+		if err != nil {
+			if ee, ok := err.(*exec.ExitError); ok && len(ee.Stderr) > 0 {
+				log.Printf("[选择环境] 执行 %s 失败: %v, stderr: %s", name, err, strings.TrimSpace(string(ee.Stderr)))
+			} else {
+				log.Printf("[选择环境] 执行 %s 失败: %v", name, err)
+			}
+			return nil, err
+		}
+		return out, nil
+	}
+
+	parseEnvs := func(out []byte) ([]string, bool) {
+		var result struct {
+			Envs []string `json:"envs"`
+		}
+		if json.Unmarshal(out, &result) != nil {
+			log.Printf("[选择环境] conda --json 解析失败, 输出长度=%d", len(out))
+			return nil, false
+		}
+		return result.Envs, len(result.Envs) > 0
+	}
+
+	// 1) 直接调用 conda（PATH 中 conda/conda.exe）
+	out, err := tryConda("conda", []string{"env", "list", "--json"})
+	if err == nil {
+		if envs, ok := parseEnvs(out); ok {
+			log.Printf("[选择环境] 通过 conda 获取到 %d 个环境", len(envs))
+			return envs
+		}
+	}
+
+	if runtime.GOOS == "windows" {
+		// 2) Windows: cmd /c conda（继承 cmd 的 PATH，部分安装方式只对 cmd 初始化了 conda）
+		cmd := exec.Command("cmd", "/c", "conda", "env", "list", "--json")
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		out, err := cmd.Output()
+		if err != nil {
+			log.Printf("[选择环境] cmd /c conda 失败: %v", err)
+		} else if envs, ok := parseEnvs(out); ok {
+			log.Printf("[选择环境] 通过 cmd /c conda 获取到 %d 个环境", len(envs))
+			return envs
+		}
+
+		// 3) Windows: 常见安装路径下的 conda.exe / conda.bat
+		userHome, _ := os.UserHomeDir()
+		commonPaths := []string{
+			filepath.Join(userHome, "miniconda3", "Scripts", "conda.exe"),
+			filepath.Join(userHome, "miniconda3", "condabin", "conda.bat"),
+			filepath.Join(userHome, "anaconda3", "Scripts", "conda.exe"),
+			filepath.Join(userHome, "anaconda3", "condabin", "conda.bat"),
+			filepath.Join(userHome, "AppData", "Local", "miniconda3", "Scripts", "conda.exe"),
+			filepath.Join(userHome, "AppData", "Local", "continuum", "miniconda3", "Scripts", "conda.exe"),
+			filepath.Join("C:\\ProgramData", "Anaconda3", "Scripts", "conda.exe"),
+		}
+		for _, condaPath := range commonPaths {
+			if _, err := os.Stat(condaPath); err != nil {
+				continue
+			}
+			log.Printf("[选择环境] 尝试使用: %s", condaPath)
+			out, err := tryConda(condaPath, []string{"env", "list", "--json"})
+			if err != nil {
+				continue
+			}
+			if envs, ok := parseEnvs(out); ok {
+				log.Printf("[选择环境] 通过 %s 获取到 %d 个环境", condaPath, len(envs))
+				return envs
+			}
+		}
+		log.Printf("[选择环境] 未在常见路径找到 conda，已尝试: %v", commonPaths)
+	}
+
+	return nil
+}
+
 // CreateVenv 创建虚拟环境
 func CreateVenv(c *gin.Context) {
 	id := c.Param("id")
@@ -595,56 +718,26 @@ func InstallRequirements(c *gin.Context) {
 	}
 }
 
-// StartWebsite 启动网站项目
-func StartWebsite(c *gin.Context) {
-	id := c.Param("id")
-	websites := loadWebsites()
-
-	var website *PythonWebsite
-	for i := range websites {
-		if websites[i].ID == id {
-			website = &websites[i]
-			break
-		}
-	}
-
-	if website == nil {
-		c.JSON(404, gin.H{"error": "项目不存在"})
-		return
-	}
-
-	// 检查是否已在运行
+// startWebsiteByID 启动单个网站项目（供 HTTP 与自启共用），成功返回 pid，失败返回错误
+func startWebsiteByID(website *PythonWebsite) (pid int, err error) {
+	id := website.ID
 	if status := getWebsiteProcessStatus(id); status.Running {
-		c.JSON(400, gin.H{"error": "项目已在运行中"})
-		return
+		return 0, fmt.Errorf("项目已在运行中")
 	}
-
-	// 检查端口是否可用
 	if !checkPortAvailable(website.Port) {
-		c.JSON(400, gin.H{"error": fmt.Sprintf("端口 %d 已被占用", website.Port)})
-		return
+		return 0, fmt.Errorf("端口 %d 已被占用", website.Port)
 	}
-
-	// 准备启动命令
-	var cmd *exec.Cmd
 	workingDir := website.WorkingDir
 	if workingDir == "" {
 		workingDir = website.Path
 	}
-
-	// 构建命令
 	commandParts := parseCommand(website.StartCommand)
 	if len(commandParts) == 0 {
-		c.JSON(400, gin.H{"error": "启动命令无效"})
-		return
+		return 0, fmt.Errorf("启动命令无效")
 	}
-
-	// 严格按用户填写的启动命令执行（不自动改写 python/venv）
-	cmd = ui.HideWindow(commandParts[0], commandParts[1:]...)
-
+	cmd := ui.HideWindow(commandParts[0], commandParts[1:]...)
 	cmd.Dir = workingDir
 
-	// 设置环境变量（含 UTF-8，避免 Windows 下日志乱码）
 	env := os.Environ()
 	for k, v := range website.EnvironmentVars {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
@@ -653,49 +746,87 @@ func StartWebsite(c *gin.Context) {
 		env = append(env, fmt.Sprintf("FLASK_RUN_PORT=%d", website.Port))
 	}
 	env = append(env, fmt.Sprintf("PORT=%d", website.Port))
-	env = append(env, "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1") // Python 子进程 stdout/stderr 使用 UTF-8
+	env = append(env, "PYTHONIOENCODING=utf-8", "PYTHONUTF8=1")
 	cmd.Env = env
 
-	// 创建日志目录
 	logDir := filepath.Join(website.Path, "logs")
 	os.MkdirAll(logDir, 0755)
 	logFile := filepath.Join(logDir, fmt.Sprintf("%s.log", id))
-
-	// 打开日志文件
 	logFileHandle, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "创建日志文件失败: " + err.Error()})
-		return
+		return 0, fmt.Errorf("创建日志文件失败: %w", err)
 	}
-
-	// 重定向输出到日志文件
 	cmd.Stdout = logFileHandle
 	cmd.Stderr = logFileHandle
-
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
 		CreationFlags: createNoWindow,
 	}
-	log.Println("cmd:	", cmd.String())
-	log.Println("workingDir:	", workingDir)
-
-	// 启动进程
+	log.Printf("[网站] 启动: %s, cmd=%s, dir=%s", website.Name, cmd.String(), workingDir)
 	if err := cmd.Start(); err != nil {
 		logFileHandle.Close()
-		c.JSON(500, gin.H{"error": "启动失败: " + err.Error()})
-		return
+		return 0, fmt.Errorf("启动失败: %w", err)
 	}
-
-	// 保存进程和日志文件句柄
 	websiteProcessMu.Lock()
 	websiteProcesses[id] = cmd
 	websiteProcessMu.Unlock()
-
 	websiteLogMu.Lock()
 	websiteLogFiles[id] = logFileHandle
 	websiteLogMu.Unlock()
+	return cmd.Process.Pid, nil
+}
 
-	c.JSON(200, gin.H{"success": true, "pid": cmd.Process.Pid})
+// StartWebsite 启动网站项目
+func StartWebsite(c *gin.Context) {
+	id := c.Param("id")
+	websites := loadWebsites()
+	var website *PythonWebsite
+	for i := range websites {
+		if websites[i].ID == id {
+			website = &websites[i]
+			break
+		}
+	}
+	if website == nil {
+		c.JSON(404, gin.H{"error": "项目不存在"})
+		return
+	}
+	pid, err := startWebsiteByID(website)
+	if err != nil {
+		msg := err.Error()
+		if strings.Contains(msg, "已在运行") {
+			c.JSON(400, gin.H{"error": "项目已在运行中"})
+			return
+		}
+		if strings.Contains(msg, "已被占用") {
+			c.JSON(400, gin.H{"error": msg})
+			return
+		}
+		if strings.Contains(msg, "启动命令无效") {
+			c.JSON(400, gin.H{"error": "启动命令无效"})
+			return
+		}
+		c.JSON(500, gin.H{"error": msg})
+		return
+	}
+	c.JSON(200, gin.H{"success": true, "pid": pid})
+}
+
+// MaybeLaunchWebsitesOnStartup 应用启动时自动启动勾选了「开机自启」的网站项目
+func MaybeLaunchWebsitesOnStartup() {
+	websites := loadWebsites()
+	for i := range websites {
+		w := &websites[i]
+		if !w.AutoStart {
+			continue
+		}
+		pid, err := startWebsiteByID(w)
+		if err != nil {
+			log.Printf("[网站自启] %s 启动失败: %v", w.Name, err)
+			continue
+		}
+		log.Printf("[网站自启] %s 已启动 (PID: %d)", w.Name, pid)
+	}
 }
 
 // StopWebsite 停止网站项目
@@ -1024,6 +1155,7 @@ func StreamWebsiteLogs(c *gin.Context) {
 // ProjectDetectResult 项目检测结果
 type ProjectDetectResult struct {
 	Framework    string `json:"framework"`    // 检测到的框架类型
+	EntryFile    string `json:"entryFile"`    // 入口文件，如 app.py、main.py
 	StartCommand string `json:"startCommand"` // 建议的启动命令
 }
 
@@ -1072,11 +1204,39 @@ func DetectProjectInfo(c *gin.Context) {
 	_ = detectVenv(req.Path)
 	_ = detectRequirementsTxt(req.Path)
 
+	// 检测入口文件（app.py、main.py 等）
+	result.EntryFile = detectEntryFile(req.Path)
+	if result.EntryFile != "" {
+		log.Printf("[检测项目] 入口文件: %s", result.EntryFile)
+	}
+
 	// 生成建议的启动命令
 	result.StartCommand = suggestStartCommand(result.Framework, req.Path)
 	log.Printf("[检测项目] 建议启动命令: %s", result.StartCommand)
 
 	c.JSON(200, result)
+}
+
+// detectEntryFile 在项目目录下扫描常见入口 .py 文件，返回文件名或相对路径
+func detectEntryFile(projectPath string) string {
+	// 优先顺序：app.py, main.py, run.py, wsgi.py, manage.py（Django 用 manage.py 启动）
+	names := []string{"app.py", "main.py", "run.py", "wsgi.py", "manage.py"}
+	for _, name := range names {
+		p := filepath.Join(projectPath, name)
+		if info, err := os.Stat(p); err == nil && !info.IsDir() {
+			return name
+		}
+	}
+	// 可选：扫描一级子目录中的 app.py / main.py
+	for _, sub := range []string{"app", "src", "application"} {
+		for _, name := range []string{"app.py", "main.py"} {
+			p := filepath.Join(projectPath, sub, name)
+			if info, err := os.Stat(p); err == nil && !info.IsDir() {
+				return filepath.Join(sub, name)
+			}
+		}
+	}
+	return ""
 }
 
 // detectFramework 检测Python框架类型

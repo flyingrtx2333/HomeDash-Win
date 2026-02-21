@@ -8,6 +8,7 @@
     "pythonPath": "C:\\Users\\17489\\AppData\\Local\\Programs\\Python\\Python310\\python.exe",
     "venvPath": "D:\\flaskProjects\\DaoyinAthleteReel\\.venv",
     "framework": "fastapi",
+    "entryFile": "",
     "startCommand": "D:\\FTP\\athleterell\\.venv\\Scripts\\python.exe app.py",
     "workingDir": "D:\\FTP\\athleterell",
     "requirementsTxt": "D:\\FTP\\athleterell\\requirements.txt",
@@ -24,15 +25,16 @@
     "domain": "",
     "port": 58888,
     "pythonPath": "",
-    "venvPath": "D:\\FTP\\FlyingrtxFast\\.venv",
+    "venvPath": "D:\\flaskProjects\\FlyingrtxFast\\.venv",
     "framework": "fastapi",
-    "startCommand": "D:\\FTP\\FlyingrtxFast\\.venv\\Scripts\\python.exe app.py",
+    "entryFile": "app.py",
+    "startCommand": "D:\\flaskProjects\\FlyingrtxFast\\.venv\\Scripts\\python.exe app.py",
     "workingDir": "D:\\FTP\\FlyingrtxFast",
     "requirementsTxt": "D:\\FTP\\FlyingrtxFast\\requirements.txt",
     "environmentVars": {},
     "autoStart": true,
     "enabled": true,
     "createdAt": 1771316564032,
-    "updatedAt": 1771404116045
+    "updatedAt": 1771671708316
   }
 ]

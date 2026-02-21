@@ -158,14 +158,81 @@ async function checkWebsiteStatus(id) {
     return { running: false, pid: 0 };
 }
 
+// 加载环境选项（项目 .venv + conda），并可选回填当前值
+async function loadWebsiteEnvOptions(projectPath, currentVenvPath) {
+    const select = document.getElementById('websiteEnvSelect');
+    if (!select) return;
+    const q = new URLSearchParams();
+    if (projectPath) q.set('projectPath', projectPath);
+    try {
+        const response = await fetch('/api/websites/envs?' + q.toString());
+        if (!response.ok) return;
+        const data = await response.json();
+        const options = data.options || [];
+        select.innerHTML = options.map(o => {
+            const val = (o.value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+            return `<option value="${val}">${escapeHtml(o.label)}</option>`;
+        }).join('');
+        if (currentVenvPath && options.some(o => o.value === currentVenvPath)) {
+            select.value = currentVenvPath;
+        } else if (currentVenvPath && currentVenvPath.trim() !== '') {
+            const opt = document.createElement('option');
+            opt.value = currentVenvPath;
+            opt.textContent = '当前: ' + currentVenvPath;
+            select.appendChild(opt);
+            select.value = currentVenvPath;
+        }
+        updateVenvActionsVisibility();
+    } catch (e) {
+        console.warn('loadWebsiteEnvOptions failed', e);
+    }
+}
+
+// 当选中「项目 .venv」时显示创建/删除/安装依赖等操作
+function updateVenvActionsVisibility() {
+    const pathInput = document.getElementById('websitePath');
+    const envSelect = document.getElementById('websiteEnvSelect');
+    const venvSection = document.getElementById('websiteVenvActionsRow');
+    if (!venvSection || !pathInput || !envSelect) return;
+    const path = (pathInput.value || '').trim();
+    const selected = (envSelect.value || '').trim();
+    const pathNorm = path.replace(/[/\\]+$/, '');
+    const sep = pathNorm.includes('\\') ? '\\' : '/';
+    const projectVenv = pathNorm + sep + '.venv';
+    const norm = s => (s || '').replace(/\//g, '\\');
+    const isProjectVenv = path && norm(selected) === norm(projectVenv);
+    venvSection.style.display = isProjectVenv ? '' : 'none';
+}
+
+// 根据所选环境 + 入口文件自动填充启动命令（.venv → Scripts/python.exe + 入口；conda → python.exe + 入口）
+function fillStartCommandFromEnv() {
+    const envSelect = document.getElementById('websiteEnvSelect');
+    const entryInput = document.getElementById('websiteEntryFile');
+    const cmdInput = document.getElementById('websiteStartCommand');
+    if (!envSelect || !cmdInput) return;
+    const envPath = (envSelect.value || '').trim();
+    const entryFile = (entryInput?.value || '').trim() || 'app.py';
+    if (!envPath) return;
+    const isWin = envPath.indexOf('\\') >= 0 || (typeof navigator !== 'undefined' && /win/i.test(navigator.platform));
+    const sep = isWin ? '\\' : '/';
+    const pathNorm = envPath.replace(/[/\\]+$/, '');
+    const isVenv = pathNorm.toLowerCase().endsWith('.venv') || pathNorm.includes('.venv' + sep);
+    let pythonExe;
+    if (isWin) {
+        pythonExe = isVenv ? pathNorm + sep + 'Scripts' + sep + 'python.exe' : pathNorm + sep + 'python.exe';
+    } else {
+        pythonExe = pathNorm + sep + 'bin' + sep + 'python';
+    }
+    const quote = s => /[\s"]/.test(s) ? '"' + String(s).replace(/"/g, '\\"') + '"' : s;
+    cmdInput.value = quote(pythonExe) + ' ' + quote(entryFile);
+}
+
 // 打开创建/编辑项目弹窗
-function openWebsiteModal(editId = null) {
+async function openWebsiteModal(editId = null) {
     const modal = document.getElementById('websiteModal');
     const editIdInput = document.getElementById('websiteEditId');
-    const venvPathInput = document.getElementById('websiteVenvPath');
-
     const venvSection = document.getElementById('websiteVenvActionsRow');
-    if (venvSection) venvSection.style.display = editId ? '' : 'none';
+    if (venvSection) venvSection.style.display = 'none';
 
     if (editId) {
         const website = websites.find(w => w.id === editId);
@@ -175,12 +242,13 @@ function openWebsiteModal(editId = null) {
             document.getElementById('websitePath').value = website.path || '';
             document.getElementById('websitePort').value = website.port || '';
             document.getElementById('websiteFramework').value = website.framework || 'flask';
+            document.getElementById('websiteEntryFile').value = website.entryFile || '';
             document.getElementById('websiteStartCommand').value = website.startCommand || '';
             document.getElementById('websiteEnvironmentVars').value = website.environmentVars 
                 ? JSON.stringify(website.environmentVars, null, 2) 
                 : '';
             document.getElementById('websiteAutoStart').checked = website.autoStart || false;
-            if (venvPathInput) venvPathInput.value = website.venvPath || '';
+            await loadWebsiteEnvOptions(website.path || '', website.venvPath || '');
         }
     } else {
         editIdInput.value = '';
@@ -188,28 +256,16 @@ function openWebsiteModal(editId = null) {
         document.getElementById('websitePath').value = '';
         document.getElementById('websitePort').value = '';
         document.getElementById('websiteFramework').value = 'flask';
+        document.getElementById('websiteEntryFile').value = '';
         document.getElementById('websiteStartCommand').value = '';
         document.getElementById('websiteEnvironmentVars').value = '';
         document.getElementById('websiteAutoStart').checked = false;
-        if (venvPathInput) venvPathInput.value = '';
+        await loadWebsiteEnvOptions('', '');
     }
 
     modal.classList.add('active');
 }
 
-// 虚拟环境路径修正：设为 项目路径 + .venv
-function fixVenvPathToDefault() {
-    const pathInput = document.getElementById('websitePath');
-    const venvPathInput = document.getElementById('websiteVenvPath');
-    if (!pathInput || !venvPathInput) return;
-    const path = (pathInput.value || '').trim();
-    if (!path) {
-        if (typeof showToast === 'function') showToast('请先填写项目路径', 'warning');
-        return;
-    }
-    const sep = path.includes('\\') ? '\\' : '/';
-    venvPathInput.value = path.replace(/[/\\]+$/, '') + sep + '.venv';
-}
 
 // 关闭创建/编辑弹窗
 function closeWebsiteModal() {
@@ -243,12 +299,14 @@ async function saveWebsite() {
         }
     }
 
-    const venvPath = (document.getElementById('websiteVenvPath')?.value || '').trim();
+    const venvPath = (document.getElementById('websiteEnvSelect')?.value || '').trim();
+    const entryFile = (document.getElementById('websiteEntryFile')?.value || '').trim();
     const website = {
         name,
         path,
         port,
         framework,
+        entryFile,
         startCommand,
         environmentVars,
         autoStart,
@@ -414,8 +472,8 @@ async function deleteVenv(id) {
             const editId = document.getElementById('websiteEditId')?.value;
             if (editId === id) {
                 const w = websites.find(x => x.id === id);
-                const venvInput = document.getElementById('websiteVenvPath');
-                if (venvInput) venvInput.value = w?.venvPath || '';
+                const path = (w?.path || '').trim();
+                loadWebsiteEnvOptions(path, '').then(() => updateVenvActionsVisibility());
             }
         } else {
             if (typeof showToast === 'function') showToast(result.error || '删除失败', 'error');
@@ -583,7 +641,10 @@ async function detectProjectInfo(path) {
                     frameworkSelect.value = result.framework;
                 }
             }
-            
+            if (result.entryFile) {
+                const entryInput = document.getElementById('websiteEntryFile');
+                if (entryInput) entryInput.value = result.entryFile;
+            }
             if (result.startCommand) {
                 const cmdInput = document.getElementById('websiteStartCommand');
                 if (cmdInput) {
@@ -604,6 +665,9 @@ async function detectProjectInfo(path) {
             const parts = [];
             if (result.framework && result.framework !== 'custom') {
                 parts.push(`框架=${result.framework}`);
+            }
+            if (result.entryFile) {
+                parts.push('入口文件=' + result.entryFile);
             }
             if (result.startCommand) {
                 parts.push('启动命令');
@@ -648,10 +712,14 @@ function openPathBrowser(options = {}) {
     if (confirmBtn) {
         confirmBtn.textContent = pathBrowserSelectMode === 'file' ? '选择此文件' : '选择此文件夹';
     }
-    
-    // 从根目录开始（Windows显示盘符列表）
+
+    const initialPath = (options.initialPath || '').trim();
     modal.classList.add('active');
-    loadDirectory('root');
+    if (initialPath) {
+        loadDirectory(initialPath);
+    } else {
+        loadDirectory('root');
+    }
 }
 
 // 关闭文件浏览器
@@ -878,6 +946,25 @@ function confirmPathSelection() {
             closePathBrowser();
             return;
         }
+        if (pathBrowserTarget === 'websiteEntryFile') {
+            if (!finalPath.toLowerCase().endsWith('.py')) {
+                if (typeof showToast === 'function') showToast('请选择 .py 文件', 'warning');
+                return;
+            }
+            const input = document.getElementById('websiteEntryFile');
+            if (input) {
+                const projectPath = (document.getElementById('websitePath')?.value || '').trim().replace(/[/\\]+$/, '');
+                const projectNorm = projectPath.replace(/\\/g, '/');
+                const finalNorm = finalPath.replace(/\\/g, '/');
+                if (projectPath && finalNorm.startsWith(projectNorm + '/')) {
+                    input.value = finalNorm.slice(projectNorm.length).replace(/^\/+/, '');
+                } else {
+                    input.value = finalPath;
+                }
+            }
+            closePathBrowser();
+            return;
+        }
         closePathBrowser();
     } else {
         if (typeof showToast === 'function') {
@@ -1024,8 +1111,7 @@ async function submitCreateVenv() {
         const editId = document.getElementById('websiteEditId')?.value;
         if (editId === id) {
             const w = websites.find(x => x.id === id);
-            const venvInput = document.getElementById('websiteVenvPath');
-            if (venvInput && w) venvInput.value = w.venvPath || '';
+            if (w) loadWebsiteEnvOptions(w.path || '', w.venvPath || '');
         }
     } catch (e) {
         if (typeof showToast === 'function') showToast('创建失败', 'error');
@@ -1087,6 +1173,13 @@ function initWebsiteEvents() {
     if (pathBrowseBtn) {
         pathBrowseBtn.addEventListener('click', () => openPathBrowser({ mode: 'dir', target: 'websitePath' }));
     }
+    const entryFileBrowseBtn = document.getElementById('websiteEntryFileBrowseBtn');
+    if (entryFileBrowseBtn) {
+        entryFileBrowseBtn.addEventListener('click', () => {
+            const projectPath = (document.getElementById('websitePath')?.value || '').trim();
+            openPathBrowser({ mode: 'file', target: 'websiteEntryFile', initialPath: projectPath || 'root' });
+        });
+    }
     
     // 文件浏览器相关事件
     const pathBrowserModal = document.getElementById('pathBrowserModal');
@@ -1109,9 +1202,46 @@ function initWebsiteEvents() {
         pathInput.addEventListener('dblclick', openPathBrowser);
     }
 
-    // 虚拟环境路径修正按钮
-    const venvPathFixBtn = document.getElementById('websiteVenvPathFixBtn');
-    if (venvPathFixBtn) venvPathFixBtn.addEventListener('click', fixVenvPathToDefault);
+    // 项目路径或环境选择变化时刷新环境列表 / 更新 venv 操作区显示
+    const envSelect = document.getElementById('websiteEnvSelect');
+    if (pathInput) {
+        pathInput.addEventListener('change', () => {
+            const path = (pathInput.value || '').trim();
+            const cur = (envSelect?.value || '').trim();
+            loadWebsiteEnvOptions(path, cur);
+        });
+        pathInput.addEventListener('blur', () => {
+            const path = (pathInput.value || '').trim();
+            if (path) loadWebsiteEnvOptions(path, (envSelect?.value || '').trim());
+        });
+    }
+    if (envSelect) {
+        envSelect.addEventListener('change', () => {
+            updateVenvActionsVisibility();
+            fillStartCommandFromEnv();
+        });
+    }
+    const envRefreshBtn = document.getElementById('websiteEnvRefreshBtn');
+    if (envRefreshBtn) {
+        envRefreshBtn.addEventListener('click', async () => {
+            const path = (document.getElementById('websitePath')?.value || '').trim();
+            const cur = (document.getElementById('websiteEnvSelect')?.value || '').trim();
+            envRefreshBtn.disabled = true;
+            try {
+                await loadWebsiteEnvOptions(path, cur);
+                updateVenvActionsVisibility();
+                fillStartCommandFromEnv();
+                if (typeof showToast === 'function') showToast('环境列表已刷新', 'success');
+            } finally {
+                envRefreshBtn.disabled = false;
+            }
+        });
+    }
+    const entryFileInput = document.getElementById('websiteEntryFile');
+    if (entryFileInput) {
+        entryFileInput.addEventListener('change', fillStartCommandFromEnv);
+        entryFileInput.addEventListener('blur', fillStartCommandFromEnv);
+    }
 
     // 编辑弹窗中的虚拟环境操作按钮
     const createVenvBtn = document.getElementById('websiteCreateVenvBtn');
@@ -1130,10 +1260,10 @@ function initWebsiteEvents() {
         const w = websites.find(x => x.id === id);
         if (!w) return;
         const pathEl = document.getElementById('websitePath');
-        const venvEl = document.getElementById('websiteVenvPath');
+        const envEl = document.getElementById('websiteEnvSelect');
         const ctx = {
             path: (pathEl?.value || w.path || '').trim(),
-            venvPath: (venvEl?.value || w.venvPath || '').trim()
+            venvPath: (envEl?.value || w.venvPath || '').trim()
         };
         closeWebsiteModal();
         openWebsiteTerminal(ctx);

@@ -92,6 +92,7 @@ type PythonWebsite struct {
 	PythonPath      string            `json:"pythonPath"`      // Python可执行文件路径
 	VenvPath        string            `json:"venvPath"`        // 虚拟环境路径
 	Framework       string            `json:"framework"`       // 框架类型：flask/django/fastapi/custom
+	EntryFile       string            `json:"entryFile"`       // 入口文件，如 app.py、main.py
 	StartCommand    string            `json:"startCommand"`    // 启动命令（如：flask run, python app.py等）
 	WorkingDir      string            `json:"workingDir"`      // 工作目录（项目根目录）
 	RequirementsTxt string            `json:"requirementsTxt"` // requirements.txt路径
