@@ -1,4 +1,5 @@
 /* ========== 网站项目表格 ========== */
+@scope (.websites-container) {
 .websites-table-wrapper {
     margin-top: 16px;
   }
@@ -378,7 +379,6 @@
     max-height: 75vh;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
   }
   
   .modal-header {
@@ -850,5 +850,6 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+    to { transform: rotate(360deg); }
+  }
 }

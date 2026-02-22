@@ -3,6 +3,8 @@ package handlers
 import (
 	"fmt"
 	"homedash/internal/ui"
+	"log"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -39,7 +41,7 @@ func LaunchService(c *gin.Context) {
 		return
 	}
 
-	if err := launchService(launchCmd); err != nil {
+	if err := launchService(launchCmd, service.WorkingDir); err != nil {
 		c.JSON(500, gin.H{"error": "启动失败: " + err.Error()})
 		return
 	}
@@ -47,23 +49,21 @@ func LaunchService(c *gin.Context) {
 	c.JSON(200, gin.H{"success": true})
 }
 
-// launchService 启动服务进程
-func launchService(launchCmd string) error {
-	// 假设 launchCmd 是 `C:\alist.exe server` parts 应该是 ["C:\alist.exe", "server"]
+// launchService 启动服务进程。若 workingDir 非空，则先切换到该工作目录再执行。
+func launchService(launchCmd, workingDir string) error {
 	parts := parseCommand(launchCmd)
 	if len(parts) == 0 {
 		return fmt.Errorf("启动命令为空")
 	}
 
-	// 直接执行，不要嵌套 cmd.exe /c start
-	// 第一个元素是程序名，后面的解构为参数
-	cmd := ui.HideWindow(parts[0], parts[1:]...)
-	err := cmd.Start()
-	if err != nil {
-		return err
+	// 先构建命令，再设置工作目录（若有），最后应用隐藏窗口
+	cmd := exec.Command(parts[0], parts[1:]...)
+	if workingDir != "" {
+		cmd.Dir = workingDir
 	}
-
-	return nil
+	log.Printf("launchService: %s (in dir: %s)", cmd.String(), cmd.Dir)
+	cmd = ui.HideWindow(cmd)
+	return cmd.Start()
 }
 
 // parseCommand 解析命令字符串，支持引号包裹的参数

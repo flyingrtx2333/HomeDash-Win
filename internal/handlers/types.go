@@ -27,6 +27,7 @@ type ServiceCard struct {
 	LaunchPath    string `json:"launchPath"`    // 启动路径（可执行文件路径，向后兼容）
 	LaunchCommand string `json:"launchCommand"` // 启动命令（支持参数）
 	ProcessName   string `json:"processName"`   // 进程名（用于检测和停止）
+	WorkingDir    string `json:"workingDir"`    // 工作目录（执行时先切换到此目录，可留空）
 	AutoStart     bool   `json:"autoStart"`     // 是否开机自启
 	CreatedAt     int64  `json:"createdAt"`
 	UpdatedAt     int64  `json:"updatedAt"`

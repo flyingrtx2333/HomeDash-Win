@@ -856,6 +856,7 @@ function openEditModal(id) {
     // 高级选项
     document.getElementById('serviceLaunchCommand').value = service.launchCommand || '';
     document.getElementById('serviceProcessName').value = service.processName || '';
+    document.getElementById('serviceWorkingDir').value = service.workingDir || '';
     // 兼容旧字段（如果元素存在）
     const launchPathEl = document.getElementById('serviceLaunchPath');
     if (launchPathEl) {
@@ -1021,6 +1022,7 @@ serviceForm.addEventListener('submit', async (e) => {
     // 读取高级选项
     const launchCommand = document.getElementById('serviceLaunchCommand').value.trim();
     const processName = document.getElementById('serviceProcessName').value.trim();
+    const workingDir = document.getElementById('serviceWorkingDir').value.trim();
     // 兼容旧字段（如果元素存在）
     const launchPathEl = document.getElementById('serviceLaunchPath');
     const launchPath = launchPathEl ? launchPathEl.value.trim() : '';
@@ -1047,6 +1049,7 @@ serviceForm.addEventListener('submit', async (e) => {
     } else if (launchPath) {
         data.launchPath = launchPath; // 向后兼容
     }
+    data.workingDir = workingDir;
 
     try {
         let response;
