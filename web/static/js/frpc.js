@@ -12,7 +12,7 @@ function setFrpcMode(mode) {
 }
 
 async function loadFrpcData() {
-    if (!document.getElementById('page-frpc')) return;
+    console.log('正在加载 frpc 数据...');
 
     const mode = getFrpcMode();
     document.querySelectorAll('.frpc-mode-btn').forEach(btn => {
@@ -307,35 +307,28 @@ function initFrpcEvents() {
     const proxyModalCancel = document.getElementById('frpcProxyModalCancel');
     const proxyModalClose = document.getElementById('frpcProxyModalClose');
     const proxyModalConfirm = document.getElementById('frpcProxyModalConfirm');
-
+    setFrpcMode('simple');
+    loadFrpcData();
     // 模式切换
-    if (modeSimple) {
-        modeSimple.addEventListener('click', () => {
-            setFrpcMode('simple');
-            loadFrpcData();
-        });
-    }
-    if (modePro) {
-        modePro.addEventListener('click', () => {
-            setFrpcMode('pro');
-            loadFrpcData();
-        });
-    }
+    modeSimple.addEventListener('click', () => {
+        setFrpcMode('simple');
+        loadFrpcData();
+    });
+    modePro.addEventListener('click', () => {
+        setFrpcMode('pro');
+        loadFrpcData();
+    });
 
     // 添加应用
-    if (addProxyBtn) {
-        addProxyBtn.addEventListener('click', () => openFrpcProxyModal(-1));
-    }
+    addProxyBtn.addEventListener('click', () => openFrpcProxyModal(-1));
 
     // 代理弹窗
-    if (proxyModalCancel) proxyModalCancel.addEventListener('click', closeFrpcProxyModal);
-    if (proxyModalClose) proxyModalClose.addEventListener('click', closeFrpcProxyModal);
-    if (proxyModalConfirm) proxyModalConfirm.addEventListener('click', confirmFrpcProxyModal);
-    if (proxyModal) {
-        proxyModal.addEventListener('click', (e) => {
-            if (e.target === proxyModal) closeFrpcProxyModal();
-        });
-    }
+    proxyModalCancel.addEventListener('click', closeFrpcProxyModal);
+    proxyModalClose.addEventListener('click', closeFrpcProxyModal);
+    proxyModalConfirm.addEventListener('click', confirmFrpcProxyModal);
+    proxyModal.addEventListener('click', (e) => {
+        if (e.target === proxyModal) closeFrpcProxyModal();
+    });
 
     if (startBtn) {
         startBtn.addEventListener('click', async () => {
@@ -405,8 +398,7 @@ function initFrpcEvents() {
     }
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initFrpcEvents);
-} else {
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('frpc.js loaded');
     initFrpcEvents();
-}
+});

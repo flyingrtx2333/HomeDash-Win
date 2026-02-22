@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"log"
 	"net/http"
 	"path/filepath"
 
@@ -9,52 +10,57 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// pageConfig 页面配置：每个路由只渲染对应内容模板和可选脚本
+type pageConfig struct {
+	ContentTemplate string
+	Scripts         []string
+}
+
+// 路由与页面配置映射（多路由独立页面，不再 SPA 全量加载）
+var pageRoutes = map[string]pageConfig{
+	"/":         {"pages/home-content", nil},
+	"/monitor":  {"pages/monitor-content", nil},
+	"/process":  {"pages/process-content", nil},
+	"/webdav":   {"pages/webdav-content", []string{"webdav"}},
+	"/logs":     {"pages/logs", nil},
+	"/terminal": {"pages/terminal-content", []string{"terminal"}},
+	"/docker":   {"pages/docker-content", nil},
+	"/comfyui":  {"pages/comfyui-content", nil},
+	"/settings": {"pages/settings-content", nil},
+	"/frpc":     {"pages/frpc-content", []string{"frpc"}},
+	"/websites": {"pages/websites-content", []string{"websites"}},
+	"/database": {"pages/database-content", []string{"database"}},
+}
+
 // SetupRoutes 设置所有路由
 func SetupRoutes(router *gin.Engine, webDir string, port string) {
 	// 初始化模板
 	templatePath := filepath.Join(webDir, "templates")
 	handlers.InitTemplates(templatePath)
 
-	// 设置HTML模板渲染
+	// 设置HTML模板渲染（失败则终止，避免后续 c.HTML 时 nil 崩溃）
 	tmpl, err := handlers.LoadTemplates()
-	if err == nil {
-		router.SetHTMLTemplate(tmpl)
+	if err != nil {
+		log.Fatalf("加载模板失败: %v", err)
 	}
+	router.SetHTMLTemplate(tmpl)
 
-	// SPA模式：所有路由都返回同一个页面（包含所有page-view）
-	router.GET("/", func(c *gin.Context) {
-		c.HTML(200, "home.html", gin.H{})
-	})
-	router.GET("/monitor", func(c *gin.Context) {
-		c.HTML(200, "home.html", gin.H{})
-	})
-	router.GET("/process", func(c *gin.Context) {
-		c.HTML(200, "home.html", gin.H{})
-	})
-	router.GET("/webdav", func(c *gin.Context) {
-		c.HTML(200, "home.html", gin.H{})
-	})
-	router.GET("/terminal", func(c *gin.Context) {
-		c.HTML(200, "home.html", gin.H{})
-	})
-	router.GET("/docker", func(c *gin.Context) {
-		c.HTML(200, "home.html", gin.H{})
-	})
-	router.GET("/comfyui", func(c *gin.Context) {
-		c.HTML(200, "home.html", gin.H{})
-	})
-	router.GET("/settings", func(c *gin.Context) {
-		c.HTML(200, "home.html", gin.H{})
-	})
-	router.GET("/frpc", func(c *gin.Context) {
-		c.HTML(200, "home.html", gin.H{})
-	})
-	router.GET("/websites", func(c *gin.Context) {
-		c.HTML(200, "home.html", gin.H{})
-	})
-	router.GET("/database", func(c *gin.Context) {
-		c.HTML(200, "home.html", gin.H{})
-	})
+	// 多路由模式：每个路径返回 master 布局 + 当前页内容，独立加载
+	for path, cfg := range pageRoutes {
+		path, cfg := path, cfg
+		currentPath := path
+		if currentPath == "" {
+			currentPath = "/"
+		}
+		router.GET(path, func(c *gin.Context) {
+			data := gin.H{
+				"ContentTemplate": cfg.ContentTemplate,
+				"CurrentPath":     currentPath,
+				"Scripts":         cfg.Scripts,
+			}
+			c.HTML(200, "master.html", data)
+		})
+	}
 
 	// 静态文件服务
 	router.StaticFS("/static", http.Dir(webDir+"/static"))

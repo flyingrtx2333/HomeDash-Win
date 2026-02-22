@@ -49,11 +49,11 @@ const createNoWindow = 0x08000000 // CREATE_NO_WINDOW (for use by other handlers
 
 // 内嵌 frp 客户端运行状态
 var (
-	frpcServiceMu   sync.Mutex
-	frpcService     *client.Service
-	frpcCancel      context.CancelFunc
-	frpcRunning     bool
-	frpcRunningPid  int32 // 本进程 PID，便于前端显示
+	frpcServiceMu  sync.Mutex
+	frpcService    *client.Service
+	frpcCancel     context.CancelFunc
+	frpcRunning    bool
+	frpcRunningPid int32 // 本进程 PID，便于前端显示
 )
 
 // getFrpcPaths 获取 frpc.toml 路径（内嵌实现不再需要 exe）
@@ -61,7 +61,7 @@ func getFrpcPaths() (tomlPath string, err error) {
 	exeDir := "."
 	if wd, e := os.Getwd(); e == nil {
 		exeDir = wd
-		exeDir = filepath.Join(exeDir, "web")
+		exeDir = filepath.Join(exeDir, "data")
 		log.Printf("[FRPC] 使用工作目录: %s", wd)
 	}
 	tomlPath = filepath.Join(exeDir, "frpc.toml")
@@ -221,8 +221,8 @@ func startFrpcService(tomlPath string) error {
 		Common:         cfg,
 		ProxyCfgs:      proxyCfgs,
 		VisitorCfgs:    visitorCfgs,
-		UnsafeFeatures:  unsafeFeatures,
-		ConfigFilePath:  tomlPath,
+		UnsafeFeatures: unsafeFeatures,
+		ConfigFilePath: tomlPath,
 	})
 	if err != nil {
 		return err

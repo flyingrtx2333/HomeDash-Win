@@ -3,7 +3,6 @@ let databases = [];
 
 // 加载数据库数据
 async function loadDatabasesData() {
-    if (!document.getElementById('page-database')) return;
     await loadDatabases();
 }
 

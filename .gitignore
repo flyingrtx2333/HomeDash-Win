@@ -14,3 +14,4 @@ PROJECTRULE.md
 *.syso
 release.ps1
 databases.json
+example_data

@@ -14,19 +14,19 @@ var (
 	websitesFile  string
 	databasesFile string
 	settingsMu    sync.RWMutex
-	servicesMu   sync.RWMutex
+	servicesMu    sync.RWMutex
 	websitesMu    sync.RWMutex
 	databasesMu   sync.RWMutex
 	webdavRoot    string // WebDAV 根目录
 )
 
 // InitHandlers 初始化处理器全局变量
-func InitHandlers(wd, sf, svf, wr string) {
+func InitHandlers(wd, sf, svf, wr, dataDir string) {
 	webDir = wd
 	settingsFile = sf
 	servicesFile = svf
-	websitesFile = filepath.Join(wd, "websites.json")
-	databasesFile = filepath.Join(wd, "databases.json")
+	websitesFile = filepath.Join(dataDir, "websites.json")
+	databasesFile = filepath.Join(dataDir, "databases.json")
 	webdavRoot = wr
 }
 

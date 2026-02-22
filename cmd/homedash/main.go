@@ -1,9 +1,12 @@
 //go:build windows
 
 // 打包前需先生成 Windows 资源（图标等），任选其一：
-//   go generate ./cmd/homedash/
-//   go-winres make --in winres/winres.json --out cmd/homedash/rsrc
+//
+//	go generate ./cmd/homedash/
+//	go-winres make --in winres/winres.json --out cmd/homedash/rsrc
+//
 // 图标需放在 winres/ 下（logo.png、logo16.png），尺寸不超过 256×256。然后再执行 go build。
+//
 //go:generate go-winres make --in ../../winres/winres.json --out rsrc
 package main
 
@@ -62,8 +65,9 @@ func runServer(app *ui.App) {
 	}
 
 	webDir := resolveWebDir()
-	settingsFile := filepath.Join(webDir, "settings.json")
-	servicesFile := filepath.Join(webDir, "services.json")
+	dataDir := resolveDataDir()
+	settingsFile := filepath.Join(dataDir, "settings.json")
+	servicesFile := filepath.Join(dataDir, "services.json")
 
 	webdavRoot := os.Getenv("WEBDAV_ROOT")
 	if webdavRoot == "" {
@@ -71,7 +75,7 @@ func runServer(app *ui.App) {
 		webdavRoot = homeDir
 	}
 
-	handlers.InitHandlers(webDir, settingsFile, servicesFile, webdavRoot)
+	handlers.InitHandlers(webDir, settingsFile, servicesFile, webdavRoot, dataDir)
 	handlers.InitDefaultServices()
 
 	savedSettings := handlers.LoadSettings()
@@ -140,4 +144,15 @@ func resolveWebDir() string {
 	}
 	log.Println("⚠ 未找到 web 目录，使用默认值 'web'")
 	return "web"
+}
+
+func resolveDataDir() string {
+	for _, dir := range []string{"data", filepath.Join("..", "data")} {
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			abs, _ := filepath.Abs(dir)
+			log.Printf("Data 目录: %s", abs)
+			return dir
+		}
+	}
+	return "data"
 }

@@ -4,7 +4,6 @@ const bgLayer = document.getElementById('bgLayer');
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsPanel = document.getElementById('settingsPanel');
 const bgGrid = document.getElementById('bgGrid');
-const serverIpInput = document.getElementById('serverIp');
 const sidebar = document.getElementById('sidebar');
 const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
 const servicesGrid = document.getElementById('servicesGrid');
@@ -12,7 +11,6 @@ const emptyState = document.getElementById('emptyState');
 const toastContainer = document.getElementById('toastContainer');
 
 let presetBackgrounds = [];
-let currentSettings = { serverIp: 'localhost', backgroundUrl: '' };
 let services = [];
 let pingResults = {}; // 存储连通性检测结果
 let serviceProcessStatus = {}; // 存储服务进程状态 { serviceId: { running: bool, pid: number } }
@@ -22,12 +20,6 @@ let reconnectTimer = null;
 let editingServiceId = null;
 let pingInterval = null;
 let processCheckInterval = null; // 进程检测定时器
-
-// 文件管理相关
-let currentFilePath = '/';
-let deletingFilePath = null;
-
-
 
 // ========== Toast 提示系统 ==========
 function showToast(message, type = 'info') {
@@ -68,359 +60,7 @@ function showToast(message, type = 'info') {
     }, duration);
 }
 
-// ========== 服务管理 ==========
-async function loadServices() {
-    try {
-        const response = await fetch('/api/services');
-        if (response.ok) {
-            services = await response.json();
-        }
-    } catch (e) {
-        console.log('加载服务列表失败');
-    }
-    renderServices();
-}
 
-function renderServices() {
-    // 显示/隐藏空状态
-    if (services.length === 0) {
-        servicesGrid.style.display = 'none';
-        emptyState.style.display = 'flex';
-        return;
-    }
-    servicesGrid.style.display = 'grid';
-    emptyState.style.display = 'none';
-
-    const ip = currentSettings.serverIp || 'localhost';
-    servicesGrid.innerHTML = services.map(service => {
-        const hasPort = service.port && service.port > 0;
-        const isEnabled = service.enabled && hasPort;
-        const url = hasPort ? `http://${ip}:${service.port}` : '#';
-        const linkText = hasPort ? url : (service.enabled ? '本地应用' : '本地应用');
-        const cardClass = 'card service-card'; // 所有卡片都正常显示，不显示禁用样式
-        const isImage = service.icon && service.icon.startsWith('/');
-        const defaultIconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-        const iconHtml = isImage
-            ? `<img class="card-icon" src="${service.icon}" alt="${service.name}" />`
-            : `<div class="card-icon">${defaultIconSvg}</div>`;
-
-        // 连通状态指示器（放在 link 右边）
-        const ping = pingResults[service.id];
-        let statusHtml = '';
-        if (isEnabled && ping) {
-            const statusClass = ping.status === 'ok' ? 'status-ok' :
-                ping.status === 'slow' ? 'status-slow' : 'status-error';
-            const statusText = ping.status === 'ok' ? '通' : ping.status === 'slow' ? '慢' : '断';
-            const latencyText = ping.latency > 0 ? `${ping.latency}ms` : '';
-            statusHtml = `<span class="ping-status-inline ${statusClass}" title="连通状态"><span>${statusText}</span><span>${latencyText}</span></span>`;
-        } else if (isEnabled) {
-            statusHtml = `<span class="ping-status-inline status-unknown" title="连通状态"><span>?</span></span>`;
-        }
-
-        // 自启状态指示器
-        const autostartHtml = service.autoStart ? '<div class="autostart-badge" title="已启用开机自启">自启</div>' : '';
-
-        // 启动/停止按钮（根据进程状态动态显示）
-        const processStatus = serviceProcessStatus[service.id] || { running: false };
-        let actionBtnHtml = '';
-        const hasLaunchConfig = service.launchCommand || service.launchPath;
-        if (hasLaunchConfig) {
-            if (processStatus.running) {
-                actionBtnHtml = `<button class="card-stop-btn" data-id="${service.id}" title="停止服务">停止</button>`;
-            } else {
-                actionBtnHtml = `<button class="card-launch-btn" data-id="${service.id}" title="启动服务">启动</button>`;
-            }
-        }
-
-        return `
-            <div class="${cardClass}" data-id="${service.id}" data-port="${service.port || 0}">
-              <div class="card-actions">
-                <button class="card-action-btn edit-btn" data-id="${service.id}" title="编辑" aria-label="编辑">
-                  <svg class="card-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-                <button class="card-action-btn delete-btn" data-id="${service.id}" title="删除" aria-label="删除">
-                  <svg class="card-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                </button>
-              </div>
-              ${autostartHtml}
-              ${isEnabled ? `<a href="${url}" target="_blank" rel="noreferrer" class="card-link">` : '<div class="card-link">'}
-                ${iconHtml}
-                <h3>${service.name}</h3>
-                <p>${service.description || ''}</p>
-                <div class="link-with-status">
-                  <span class="link">${linkText}</span>
-                  ${statusHtml}
-                </div>
-              ${isEnabled ? '</a>' : '</div>'}
-              ${actionBtnHtml}
-            </div>
-          `;
-    }).join('');
-
-    // 绑定编辑/删除事件
-    document.querySelectorAll('.edit-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openEditModal(btn.dataset.id);
-        });
-    });
-
-    document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openDeleteModal(btn.dataset.id);
-        });
-    });
-
-    // 绑定启动按钮事件
-    document.querySelectorAll('.card-launch-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const serviceId = btn.dataset.id;
-            const service = services.find(s => s.id === serviceId);
-            const hasLaunchConfig = service && (service.launchCommand || service.launchPath);
-            if (!hasLaunchConfig) return;
-
-            // 设置loading状态
-            btn.disabled = true;
-            btn.classList.add('loading');
-            btn.textContent = '启动中';
-
-            try {
-                // 调用启动API
-                const response = await fetch(`/api/services/${serviceId}/launch`, {
-                    method: 'POST'
-                });
-                const result = await response.json();
-
-                if (response.ok) {
-                    // 轮询检测进程是否启动成功（最多180秒）
-                    const maxAttempts = 180; // 180秒
-                    let attempts = 0;
-                    let started = false;
-
-                    const checkProcess = async () => {
-                        attempts++;
-                        await checkServiceProcessStatus(serviceId);
-                        const status = serviceProcessStatus[serviceId];
-
-                        if (status && status.running) {
-                            // 进程已启动
-                            started = true;
-                            showToast('服务启动成功', 'success');
-                            renderServices();
-                            return;
-                        }
-
-                        if (attempts < maxAttempts) {
-                            // 继续检测
-                            setTimeout(checkProcess, 1000); // 每秒检测一次
-                        } else {
-                            // 超时
-                            showToast('启动超时：180秒内未检测到进程启动', 'warning');
-                            btn.disabled = false;
-                            btn.classList.remove('loading');
-                            renderServices();
-                        }
-                    };
-
-                    // 开始检测
-                    setTimeout(checkProcess, 1000); // 1秒后开始检测
-                } else {
-                    showToast('启动失败: ' + (result.error || '未知错误'), 'error');
-                    btn.disabled = false;
-                    btn.classList.remove('loading');
-                    renderServices();
-                }
-            } catch (e) {
-                showToast('启动失败: ' + e.message, 'error');
-                btn.disabled = false;
-                btn.classList.remove('loading');
-                renderServices();
-            }
-        });
-    });
-
-    // 绑定停止按钮事件
-    document.querySelectorAll('.card-stop-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const serviceId = btn.dataset.id;
-            const service = services.find(s => s.id === serviceId);
-            const hasLaunchConfig = service && (service.launchCommand || service.launchPath);
-            if (!hasLaunchConfig) return;
-
-            // 设置loading状态
-            btn.disabled = true;
-            btn.classList.add('loading');
-            btn.textContent = '停止中';
-
-            try {
-                // 调用停止API
-                const response = await fetch(`/api/services/${serviceId}/stop`, {
-                    method: 'POST'
-                });
-                const result = await response.json();
-
-                if (response.ok) {
-                    // 轮询检测进程是否已停止（最多180秒）
-                    const maxAttempts = 180; // 180秒
-                    let attempts = 0;
-                    let stopped = false;
-
-                    const checkProcess = async () => {
-                        attempts++;
-                        await checkServiceProcessStatus(serviceId);
-                        const status = serviceProcessStatus[serviceId];
-
-                        if (!status || !status.running) {
-                            // 进程已停止
-                            stopped = true;
-                            showToast('服务已停止', 'success');
-                            renderServices();
-                            return;
-                        }
-
-                        if (attempts < maxAttempts) {
-                            // 继续检测
-                            setTimeout(checkProcess, 1000); // 每秒检测一次
-                        } else {
-                            // 超时
-                            showToast('停止超时：180秒内进程仍未停止', 'warning');
-                            btn.disabled = false;
-                            btn.classList.remove('loading');
-                            renderServices();
-                        }
-                    };
-
-                    // 开始检测
-                    setTimeout(checkProcess, 1000); // 1秒后开始检测
-                } else {
-                    showToast('停止失败: ' + (result.error || '未知错误'), 'error');
-                    btn.disabled = false;
-                    btn.classList.remove('loading');
-                    renderServices();
-                }
-            } catch (e) {
-                showToast('停止失败: ' + e.message, 'error');
-                btn.disabled = false;
-                btn.classList.remove('loading');
-                renderServices();
-            }
-        });
-    });
-}
-
-// ========== 进程状态检测 ==========
-async function checkServiceProcessStatus(serviceId) {
-    try {
-        const response = await fetch(`/api/services/${serviceId}/process-status`);
-        if (response.ok) {
-            const status = await response.json();
-            serviceProcessStatus[serviceId] = status;
-        }
-    } catch (e) {
-        console.log('检测进程状态失败:', serviceId);
-    }
-}
-
-async function checkAllServiceProcesses() {
-    const servicesWithConfig = services.filter(s => s.launchCommand || s.launchPath);
-    for (const service of servicesWithConfig) {
-        await checkServiceProcessStatus(service.id);
-    }
-    renderServices();
-}
-
-function updateServiceLinks() {
-    const ip = currentSettings.serverIp || 'localhost';
-    document.querySelectorAll('.service-card').forEach(card => {
-        const port = parseInt(card.dataset.port);
-        if (port > 0) {
-            const url = `http://${ip}:${port}`;
-            const link = card.querySelector('.card-link');
-            if (link && link.tagName === 'A') {
-                link.href = url;
-            }
-            const linkText = card.querySelector('.link');
-            if (linkText) {
-                linkText.textContent = url;
-            }
-        }
-    });
-}
-
-// ========== 连通性检测 ==========
-async function pingAllServices() {
-    const btn = document.getElementById('pingAllBtn');
-    btn.disabled = true;
-    btn.textContent = '检测中...';
-
-    try {
-        const response = await fetch('/api/ping-all');
-        if (response.ok) {
-            const results = await response.json();
-            results.forEach(r => {
-                pingResults[r.id] = r;
-            });
-            renderServices();
-        }
-    } catch (e) {
-        console.log('连通性检测失败');
-    }
-
-    btn.disabled = false;
-    btn.textContent = '检测连通';
-}
-
-// ========== 模板导入 ==========
-async function importTemplate() {
-    if (!confirm('是否导入推荐服务模板？已存在的同名服务不会重复添加。')) return;
-
-    try {
-        const response = await fetch('/api/services/import-template', { method: 'POST' });
-        if (response.ok) {
-            await loadServices();
-            alert('导入成功！');
-        }
-    } catch (e) {
-        alert('导入失败');
-    }
-}
-
-// ========== Favicon 抓取 ==========
-async function fetchFavicon() {
-    const port = document.getElementById('servicePort').value;
-    if (!port) {
-        alert('请先填写端口号');
-        return;
-    }
-
-    const ip = currentSettings.serverIp || 'localhost';
-    const url = `http://${ip}:${port}`;
-
-    const btn = document.getElementById('fetchFaviconBtn');
-    btn.disabled = true;
-    btn.textContent = '获取中...';
-
-    try {
-        const response = await fetch(`/api/favicon?url=${encodeURIComponent(url)}`);
-        const result = await response.json();
-
-        if (result.success && result.icon) {
-            document.getElementById('serviceIcon').value = result.icon;
-            document.querySelectorAll('.icon-option').forEach(o => o.classList.remove('active'));
-            alert('图标获取成功！');
-        } else {
-            alert('无法获取图标: ' + (result.error || '未知错误'));
-        }
-    } catch (e) {
-        alert('获取图标失败');
-    }
-
-    btn.disabled = false;
-    btn.textContent = '获取图标';
-}
 
 // ========== 进程管理 ==========
 let processesData = [];
@@ -819,133 +459,37 @@ function debounce(func, wait) {
     };
 }
 
-// ========== 弹窗管理 ==========
-const serviceModal = document.getElementById('serviceModal');
-const serviceForm = document.getElementById('serviceForm');
-const modalTitle = document.getElementById('modalTitle');
-const addServiceBtn = document.getElementById('addServiceBtn');
-const modalClose = document.getElementById('modalClose');
-const cancelBtn = document.getElementById('cancelBtn');
 
-const deleteModal = document.getElementById('deleteModal');
-const deleteServiceName = document.getElementById('deleteServiceName');
-const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
-const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-let deletingServiceId = null;
 
-addServiceBtn.addEventListener('click', () => {
-    editingServiceId = null;
-    modalTitle.textContent = '添加服务';
-    serviceForm.reset();
-    resetIconUpload();
-    document.querySelectorAll('.icon-option').forEach(opt => opt.classList.remove('active'));
-    document.querySelector('.icon-option[data-icon="🌐"]').classList.add('active');
-    serviceModal.classList.add('active');
-});
 
-function openEditModal(id) {
-    const service = services.find(s => s.id === id);
-    if (!service) return;
 
-    editingServiceId = id;
-    modalTitle.textContent = '编辑服务';
-    document.getElementById('serviceName').value = service.name;
-    document.getElementById('serviceDesc').value = service.description || '';
-    document.getElementById('servicePort').value = service.port || '';
-    
-    // 高级选项
-    document.getElementById('serviceLaunchCommand').value = service.launchCommand || '';
-    document.getElementById('serviceProcessName').value = service.processName || '';
-    document.getElementById('serviceWorkingDir').value = service.workingDir || '';
-    // 兼容旧字段（如果元素存在）
-    const launchPathEl = document.getElementById('serviceLaunchPath');
-    if (launchPathEl) {
-        launchPathEl.value = service.launchPath || '';
-    }
-    
-    document.getElementById('serviceAutoStart').checked = service.autoStart || false;
-
-    // 设置图标
-    const isImage = service.icon && service.icon.startsWith('/');
-    document.getElementById('serviceIcon').value = isImage ? service.icon : '';
-
-    // 重置上传区域
-    resetIconUpload();
-
-    if (isImage) {
-        // 显示已有图标预览
-        showIconPreview(service.icon, '当前图标');
-    } else {
-        // 选中对应的 emoji
-        document.querySelectorAll('.icon-option').forEach(opt => {
-            opt.classList.toggle('active', opt.dataset.icon === service.icon);
-        });
-    }
-
-    serviceModal.classList.add('active');
-}
-
-function openDeleteModal(id) {
-    const service = services.find(s => s.id === id);
-    if (!service) return;
-
-    deletingServiceId = id;
-    deleteServiceName.textContent = service.name;
-    deleteModal.classList.add('active');
-}
-
-function closeModals() {
-    serviceModal.classList.remove('active');
-    deleteModal.classList.remove('active');
-    editingServiceId = null;
-    deletingServiceId = null;
-    // 重置上传区域
-    resetIconUpload();
-}
-
-function resetIconUpload() {
-    const zone = document.getElementById('iconUploadZone');
-    const preview = document.getElementById('uploadPreview');
-    zone.classList.remove('has-preview');
-    preview.innerHTML = '';
-    document.getElementById('iconFileInput').value = '';
-}
-
-modalClose.addEventListener('click', closeModals);
-cancelBtn.addEventListener('click', closeModals);
-cancelDeleteBtn.addEventListener('click', closeModals);
-
-// ========== 图标上传/拖拽 ==========
+// ========== 图标上传/拖拽（仅首页/服务弹窗存在时） ==========
 const iconUploadZone = document.getElementById('iconUploadZone');
 const iconFileInput = document.getElementById('iconFileInput');
 
-iconUploadZone.addEventListener('click', () => {
-    iconFileInput.click();
-});
-
-iconUploadZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    iconUploadZone.classList.add('dragover');
-});
-
-iconUploadZone.addEventListener('dragleave', () => {
-    iconUploadZone.classList.remove('dragover');
-});
-
-iconUploadZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    iconUploadZone.classList.remove('dragover');
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        handleIconFile(files[0]);
-    }
-});
-
-iconFileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-        handleIconFile(e.target.files[0]);
-    }
-});
+if (iconUploadZone) {
+    iconUploadZone.addEventListener('click', () => {
+        if (iconFileInput) iconFileInput.click();
+    });
+    iconUploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        iconUploadZone.classList.add('dragover');
+    });
+    iconUploadZone.addEventListener('dragleave', () => {
+        iconUploadZone.classList.remove('dragover');
+    });
+    iconUploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        iconUploadZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) handleIconFile(files[0]);
+    });
+}
+if (iconFileInput) {
+    iconFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) handleIconFile(e.target.files[0]);
+    });
+}
 
 async function handleIconFile(file) {
     // 验证文件类型
@@ -1005,169 +549,50 @@ document.querySelectorAll('.icon-option').forEach(opt => {
     opt.addEventListener('click', () => {
         document.querySelectorAll('.icon-option').forEach(o => o.classList.remove('active'));
         opt.classList.add('active');
-        document.getElementById('serviceIcon').value = '';
+        const iconInput = document.getElementById('serviceIcon');
+        if (iconInput) iconInput.value = '';
         resetIconUpload();
     });
 });
 
 
-// 保存服务
-serviceForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const activeIcon = document.querySelector('.icon-option.active');
-    const customIcon = document.getElementById('serviceIcon').value.trim();
-    const icon = customIcon || (activeIcon ? activeIcon.dataset.icon : '🌐');
-
-    // 读取高级选项
-    const launchCommand = document.getElementById('serviceLaunchCommand').value.trim();
-    const processName = document.getElementById('serviceProcessName').value.trim();
-    const workingDir = document.getElementById('serviceWorkingDir').value.trim();
-    // 兼容旧字段（如果元素存在）
-    const launchPathEl = document.getElementById('serviceLaunchPath');
-    const launchPath = launchPathEl ? launchPathEl.value.trim() : '';
-
-    // 验证：如果配置了启动命令，进程名必填
-    if (launchCommand && !processName) {
-        alert('配置启动命令时，进程名必须填写');
-        return;
-    }
-
-    const data = {
-        name: document.getElementById('serviceName').value.trim(),
-        description: document.getElementById('serviceDesc').value.trim(),
-        port: parseInt(document.getElementById('servicePort').value) || 0,
-        icon: icon,
-        enabled: true, // 允许本地应用（端口为0）
-        autoStart: document.getElementById('serviceAutoStart').checked
-    };
-
-    // 优先使用高级选项，否则使用旧字段
-    if (launchCommand && processName) {
-        data.launchCommand = launchCommand;
-        data.processName = processName;
-    } else if (launchPath) {
-        data.launchPath = launchPath; // 向后兼容
-    }
-    data.workingDir = workingDir;
-
-    try {
-        let response;
-        let serviceId = editingServiceId;
-
-        if (editingServiceId) {
-            response = await fetch(`/api/services/${editingServiceId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-        } else {
-            response = await fetch('/api/services', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-
-            if (response.ok) {
-                const newService = await response.json();
-                serviceId = newService.id;
-            }
-        }
-
-        if (response.ok) {
-            // 设置服务自启
-            if (serviceId) {
-                try {
-                    await fetch(`/api/services/${serviceId}/autostart`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ autoStart: data.autoStart })
-                    });
-                } catch (e) {
-                    console.log('设置自启失败');
-                }
-            }
-
-            closeModals();
-            await loadServices();
-        }
-    } catch (e) {
-        console.log('保存失败');
-    }
-});
-
-// 删除服务
-confirmDeleteBtn.addEventListener('click', async () => {
-    if (!deletingServiceId) return;
-
-    try {
-        const response = await fetch(`/api/services/${deletingServiceId}`, {
-            method: 'DELETE'
-        });
-        if (response.ok) {
-            closeModals();
-            await loadServices();
-        }
-    } catch (e) {
-        console.log('删除失败');
-    }
-});
 
 // 点击遮罩关闭
-serviceModal.addEventListener('click', (e) => {
+if (serviceModal) serviceModal.addEventListener('click', (e) => {
     if (e.target === serviceModal) closeModals();
 });
-deleteModal.addEventListener('click', (e) => {
+if (deleteModal) deleteModal.addEventListener('click', (e) => {
     if (e.target === deleteModal) closeModals();
 });
 
-// ========== 页面导航 ==========
+// ========== 页面导航（多路由模式：侧栏为真实链接，仅保留点击后收起侧栏） ==========
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
-        const page = item.dataset.page;
-        switchPage(page);
         sidebar.classList.remove('open');
-        // 更新按钮箭头方向
         if (sidebarToggleBtn) sidebarToggleBtn.classList.remove('sidebar-open');
     });
 });
 
-function switchPage(pageName) {
-    if (pageName !== 'frpc' && typeof stopFrpcPolling === 'function') stopFrpcPolling();
+// 根据当前路由初始化当前页逻辑（多路由独立页面，每页加载时执行一次）
+// function initPageByPath() {
+//     const path = window.location.pathname || '/';
+//     connectMonitorWs();
 
-    document.querySelectorAll('.nav-item').forEach(nav => {
-        nav.classList.toggle('active', nav.dataset.page === pageName);
-    });
-    document.querySelectorAll('.page-view').forEach(view => {
-        view.classList.toggle('active', view.id === `page-${pageName}`);
-    });
-
-    // WebSocket 始终保持连接（用于顶部栏状态显示）
-    connectMonitorWs();
-
-    if (pageName === 'process') {
-        loadProcesses();
-    } else if (pageName === 'files') {
-        loadWebdavRoot();
-        loadFiles(currentFilePath);
-        updateWebdavUrl();
-    } else if (pageName === 'ssh') {
-        console.log('切换页面到ssh');
-        window.connectTerminal();
-    } else if (pageName === 'docker') {
-        loadDockerContainers();
-    } else if (pageName === 'settings') {
-        loadAppConfig();
-    } else if (pageName === 'frpc') {
-        if (typeof loadFrpcData === 'function') loadFrpcData();
-    } else if (pageName === 'ai') {
-        loadComfyUIConfig();
-        loadWorkflows();
-    } else if (pageName === 'ai') {
-        loadComfyUIConfig();
-        loadWorkflows();
-    }
-}
+//     if (path === '/process') {
+//         loadProcesses();
+//     } else if (path === '/terminal') {
+//         if (typeof window.connectTerminal === 'function') window.connectTerminal();
+//     } else if (path === '/docker') {
+//         loadDockerContainers();
+//     } else if (path === '/settings') {
+//         loadAppConfig();
+//     } else if (path === '/frpc') {
+//         if (typeof loadFrpcData === 'function') loadFrpcData();
+//     } else if (path === '/comfyui') {
+//         if (typeof loadComfyUIConfig === 'function') loadComfyUIConfig();
+//         if (typeof loadWorkflows === 'function') loadWorkflows();
+//     }
+// }
 
 sidebarToggleBtn.addEventListener('click', () => {
     sidebar.classList.toggle('open');
@@ -1195,17 +620,14 @@ function connectMonitorWs() {
     monitorWs.onmessage = (event) => {
         const stats = JSON.parse(event.data);
         updateMonitorUI(stats);
-
-        if (document.getElementById('page-monitor')?.classList.contains('active')) {
+        if (window.location.pathname === '/monitor' && stats.disks) {
             updateDisksEnhanced(stats.disks);
         }
     };
 
     monitorWs.onclose = () => {
         updateConnectionStatus(false);
-        if (document.getElementById('page-monitor').classList.contains('active')) {
-            reconnectTimer = setTimeout(connectMonitorWs, 3000);
-        }
+        reconnectTimer = setTimeout(connectMonitorWs, 3000);
     };
 
     monitorWs.onerror = () => {
@@ -1227,43 +649,26 @@ function disconnectMonitorWs() {
 function updateConnectionStatus(connected) {
     const dot = document.getElementById('statusDot');
     const text = document.getElementById('statusText');
-    dot.classList.toggle('connected', connected);
-    text.textContent = connected ? '已连接 · 实时更新中' : '连接断开 · 正在重连...';
+    if (dot) dot.classList.toggle('connected', connected);
+    if (text) text.textContent = connected ? '已连接 · 实时更新中' : '连接断开 · 正在重连...';
 }
 
 function updateTopBarStats(stats) {
-    // CPU
-    document.getElementById('topCpu').textContent = Math.round(stats.cpu.usage) + '%';
-
-    // 内存
-    document.getElementById('topMem').textContent = Math.round(stats.memory.usedPercent) + '%';
-
-    // GPU
-    if (stats.gpu.available) {
-        document.getElementById('topGpu').textContent = Math.round(stats.gpu.usage) + '%';
-    } else {
-        document.getElementById('topGpu').textContent = 'N/A';
-    }
-
-    // 网络
+    const topCpu = document.getElementById('topCpu');
+    const topMem = document.getElementById('topMem');
+    const topGpu = document.getElementById('topGpu');
+    const topNetUp = document.getElementById('topNetUp');
+    const topNetDown = document.getElementById('topNetDown');
+    if (topCpu) topCpu.textContent = Math.round(stats.cpu.usage) + '%';
+    if (topMem) topMem.textContent = Math.round(stats.memory.usedPercent) + '%';
+    if (topGpu) topGpu.textContent = stats.gpu.available ? Math.round(stats.gpu.usage) + '%' : 'N/A';
     if (stats.network) {
-        document.getElementById('topNetUp').textContent = formatSpeedShort(stats.network.speedSent);
-        document.getElementById('topNetDown').textContent = formatSpeedShort(stats.network.speedRecv);
+        if (topNetUp) topNetUp.textContent = formatSpeedShort(stats.network.speedSent);
+        if (topNetDown) topNetDown.textContent = formatSpeedShort(stats.network.speedRecv);
     }
 }
 
-// 测量网页延迟（使用Performance API）
-async function measureWebPing() {
-    try {
-        const start = performance.now();
-        await fetch('/api/ping', { method: 'GET', cache: 'no-cache' });
-        const end = performance.now();
-        const latency = Math.round(end - start);
-        document.getElementById('topWebPing').textContent = latency + 'ms';
-    } catch (e) {
-        document.getElementById('topWebPing').textContent = '--';
-    }
-}
+
 
 
 function formatSpeedShort(bytesPerSec) {
@@ -1712,12 +1117,7 @@ async function loadPresetBackgrounds() {
 }
 
 function applySettings() {
-    if (currentSettings.serverIp) {
-        serverIpInput.value = currentSettings.serverIp;
-    }
-    if (currentSettings.backgroundUrl) {
-        bgLayer.style.backgroundImage = `url('${currentSettings.backgroundUrl}')`;
-    }
+    if (currentSettings.backgroundUrl && bgLayer) bgLayer.style.backgroundImage = `url('${currentSettings.backgroundUrl}')`;
     applyTheme(currentSettings.theme || 'dark');
 }
 
@@ -1747,16 +1147,9 @@ function applyTheme(theme) {
     });
 })();
 
-serverIpInput.addEventListener('input', (e) => {
-    const ip = e.target.value.trim();
-    if (ip) {
-        currentSettings.serverIp = ip;
-        saveSettingsToServer();
-        updateServiceLinks();
-    }
-});
 
 function renderBackgroundOptions() {
+    if (!bgGrid) return;
     bgGrid.innerHTML = '';
     presetBackgrounds.forEach(bg => {
         const option = document.createElement('div');
@@ -1768,7 +1161,7 @@ function renderBackgroundOptions() {
 }
 
 function setBackground(url) {
-    bgLayer.style.backgroundImage = `url('${url}')`;
+    if (bgLayer) bgLayer.style.backgroundImage = `url('${url}')`;
     currentSettings.backgroundUrl = url;
     saveSettingsToServer();
     document.querySelectorAll('.bg-option').forEach((opt, i) => {
@@ -1776,323 +1169,20 @@ function setBackground(url) {
     });
 }
 
-settingsBtn.addEventListener('click', (e) => {
+if (settingsBtn) settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    settingsPanel.classList.toggle('active');
+    if (settingsPanel) settingsPanel.classList.toggle('active');
 });
 
 document.addEventListener('click', (e) => {
-    if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+    if (settingsPanel && settingsBtn && !settingsPanel.contains(e.target) && e.target !== settingsBtn) {
         settingsPanel.classList.remove('active');
     }
 });
 
-// ========== 事件绑定 ==========
-document.getElementById('pingAllBtn').addEventListener('click', pingAllServices);
-document.getElementById('importTemplateBtn').addEventListener('click', importTemplate);
-document.getElementById('emptyImportBtn').addEventListener('click', importTemplate);
-document.getElementById('fetchFaviconBtn').addEventListener('click', fetchFavicon);
-
-// ========== 文件管理 ==========
-async function loadFiles(path) {
-    currentFilePath = path;
-    const tbody = document.getElementById('fileTableBody');
-    tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载中...</td></tr>';
-
-    try {
-        const response = await fetch(`/api/files?path=${encodeURIComponent(path)}`);
-        if (response.ok) {
-            const data = await response.json();
-            renderFiles(data.files || []);
-            renderBreadcrumb(path);
-        } else {
-            tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载失败</td></tr>';
-        }
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载失败</td></tr>';
-    }
-}
-
-function renderFiles(files) {
-    const tbody = document.getElementById('fileTableBody');
-    if (!files || files.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-row">文件夹为空</td></tr>';
-        return;
-    }
-
-    const folderIconSvg = '<svg class="file-list-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
-        const fileIconSvg = '<svg class="file-list-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
-        tbody.innerHTML = files.map(file => {
-        const icon = file.isDir ? folderIconSvg : fileIconSvg;
-        const size = file.isDir ? '-' : formatBytes(file.size);
-        const time = new Date(file.modTime).toLocaleString('zh-CN');
-
-        return `
-            <tr class="file-row" data-path="${file.path}" data-isdir="${file.isDir}">
-              <td class="col-icon">${icon}</td>
-              <td class="col-name">${file.name}</td>
-              <td class="col-size">${size}</td>
-              <td class="col-time">${time}</td>
-              <td class="col-actions">
-                ${file.isDir ? '' : `<button class="btn-icon" onclick="downloadFile('${file.path}')" title="下载">下载</button>`}
-                <button class="btn-icon btn-danger-icon" onclick="openDeleteFileModal('${file.path}', '${file.name}')" title="删除">删除</button>
-              </td>
-            </tr>
-          `;
-    }).join('');
-
-    // 绑定双击事件进入文件夹
-    document.querySelectorAll('.file-row').forEach(row => {
-        row.addEventListener('dblclick', () => {
-            if (row.dataset.isdir === 'true') {
-                loadFiles(row.dataset.path);
-            }
-        });
-    });
-}
-
-function renderBreadcrumb(path) {
-    const breadcrumb = document.getElementById('breadcrumb');
-    const parts = path.split('/').filter(p => p);
-
-    let html = `<span class="breadcrumb-item" data-path="/" onclick="loadFiles('/')">根目录</span>`;
-    let currentPath = '';
-
-    parts.forEach((part, index) => {
-        currentPath += '/' + part;
-        const isLast = index === parts.length - 1;
-        html += `<span class="breadcrumb-sep">/</span>`;
-        html += `<span class="breadcrumb-item${isLast ? ' active' : ''}" data-path="${currentPath}" onclick="loadFiles('${currentPath}')">${part}</span>`;
-    });
-
-    breadcrumb.innerHTML = html;
-}
-
-function getFileIcon(filename) {
-    // 仅用于扩展名分类，图标由 renderFiles 中统一 SVG 展示
-    const ext = filename.split('.').pop().toLowerCase();
-    const types = ['pdf','doc','docx','txt','xls','xlsx','csv','ppt','pptx','jpg','jpeg','png','gif','webp','svg','mp3','wav','flac','aac','mp4','mkv','avi','mov','wmv','zip','rar','7z','tar','gz','exe','msi','bat','sh','js','ts','py','go','java','html','css','json','xml'];
-    return types.includes(ext) ? ext : 'file';
-}
-
-function downloadFile(path) {
-    window.open(`/api/files/download?path=${encodeURIComponent(path)}`, '_blank');
-}
-
-function openDeleteFileModal(path, name) {
-    deletingFilePath = path;
-    document.getElementById('deleteFileName').textContent = name;
-    document.getElementById('deleteFileModal').classList.add('active');
-}
-
-function closeFileModals() {
-    document.getElementById('newFolderModal').classList.remove('active');
-    document.getElementById('deleteFileModal').classList.remove('active');
-    deletingFilePath = null;
-}
-
-// 新建文件夹
-document.getElementById('newFolderBtn').addEventListener('click', () => {
-    document.getElementById('folderName').value = '';
-    document.getElementById('newFolderModal').classList.add('active');
-});
-
-document.getElementById('closeFolderModal').addEventListener('click', closeFileModals);
-document.getElementById('cancelFolderBtn').addEventListener('click', closeFileModals);
-document.getElementById('cancelDeleteFileBtn').addEventListener('click', closeFileModals);
-
-document.getElementById('confirmFolderBtn').addEventListener('click', async () => {
-    const name = document.getElementById('folderName').value.trim();
-    if (!name) {
-        alert('请输入文件夹名称');
-        return;
-    }
-
-    const newPath = currentFilePath === '/' ? '/' + name : currentFilePath + '/' + name;
-
-    try {
-        const response = await fetch('/api/files/mkdir', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: newPath })
-        });
-
-        if (response.ok) {
-            closeFileModals();
-            loadFiles(currentFilePath);
-        } else {
-            alert('创建文件夹失败');
-        }
-    } catch (e) {
-        alert('创建文件夹失败');
-    }
-});
-
-// 删除文件
-document.getElementById('confirmDeleteFileBtn').addEventListener('click', async () => {
-    if (!deletingFilePath) return;
-
-    try {
-        const response = await fetch(`/api/files?path=${encodeURIComponent(deletingFilePath)}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
-            closeFileModals();
-            loadFiles(currentFilePath);
-        } else {
-            alert('删除失败');
-        }
-    } catch (e) {
-        alert('删除失败');
-    }
-});
-
-// 上传文件
-document.getElementById('uploadFileBtn').addEventListener('click', () => {
-    document.getElementById('fileUploadInput').click();
-});
-
-document.getElementById('fileUploadInput').addEventListener('change', async (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    for (const file of files) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('path', currentFilePath);
-
-        try {
-            await fetch('/api/files/upload', {
-                method: 'POST',
-                body: formData
-            });
-        } catch (e) {
-            console.log('上传失败:', file.name);
-        }
-    }
-
-    e.target.value = '';
-    loadFiles(currentFilePath);
-});
-
-// WebDAV URL
-function updateWebdavUrl() {
-    const protocol = window.location.protocol;
-    const host = window.location.host;
-    document.getElementById('webdavUrl').textContent = `${protocol}//${host}/webdav/`;
-}
-
-// 加载 WebDAV 根目录
-async function loadWebdavRoot() {
-    try {
-        const response = await fetch('/api/webdav-root');
-        if (response.ok) {
-            const data = await response.json();
-            document.getElementById('webdavRootInput').value = data.root || '';
-        }
-    } catch (e) {
-        console.log('加载 WebDAV 根目录失败');
-    }
-}
-
-// 设置 WebDAV 根目录
-document.getElementById('setWebdavRootBtn').addEventListener('click', async () => {
-    const root = document.getElementById('webdavRootInput').value.trim();
-    if (!root) {
-        alert('请输入目录路径');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/webdav-root', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ root })
-        });
-
-        const result = await response.json();
-        if (response.ok) {
-            alert('设置成功！');
-            currentFilePath = '/';
-            loadFiles('/');
-        } else {
-            alert('设置失败: ' + (result.error || '未知错误'));
-        }
-    } catch (e) {
-        alert('设置失败');
-    }
-});
-
-document.getElementById('copyWebdavBtn').addEventListener('click', () => {
-    const url = document.getElementById('webdavUrl').textContent;
-    navigator.clipboard.writeText(url).then(() => {
-        alert('已复制到剪贴板');
-    });
-});
-
-// 弹窗关闭
-document.getElementById('newFolderModal').addEventListener('click', (e) => {
-    if (e.target.id === 'newFolderModal') closeFileModals();
-});
-document.getElementById('deleteFileModal').addEventListener('click', (e) => {
-    if (e.target.id === 'deleteFileModal') closeFileModals();
-});
 
 
 
-// ========== Docker 管理 ==========
-async function loadDockerContainers() {
-    const tbody = document.getElementById('dockerTableBody');
-    const status = document.getElementById('dockerStatus');
-    tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载中...</td></tr>';
-
-    try {
-        const response = await fetch('/api/docker/containers');
-        if (response.ok) {
-            const containers = await response.json();
-            renderDockerContainers(containers);
-
-            if (containers && containers.length > 0) {
-                status.innerHTML = '<span class="status-dot connected"></span><span>Docker 已连接</span>';
-            } else {
-                status.innerHTML = '<span class="status-dot"></span><span>未检测到容器</span>';
-            }
-        } else {
-            tbody.innerHTML = '<tr><td colspan="5" class="loading-row">加载失败</td></tr>';
-            status.innerHTML = '<span class="status-dot error"></span><span>Docker 未运行或未安装</span>';
-        }
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-row">无法连接 Docker</td></tr>';
-        status.innerHTML = '<span class="status-dot error"></span><span>Docker 未运行或未安装</span>';
-    }
-}
-
-function renderDockerContainers(containers) {
-    const tbody = document.getElementById('dockerTableBody');
-    if (!containers || containers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-row">暂无容器</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = containers.map(c => {
-        const isRunning = c.state === 'running';
-        const statusClass = isRunning ? 'running' : 'stopped';
-        const statusDot = `<span class="docker-status-dot ${statusClass}" title="${isRunning ? '运行中' : '已停止'}"></span>`;
-
-        return `
-            <tr class="docker-row">
-              <td class="col-status">${statusDot}</td>
-              <td class="container-name">${c.name}</td>
-              <td class="container-image">${c.image}</td>
-              <td class="container-status ${statusClass}">${c.status}</td>
-              <td class="container-ports">${c.ports || '-'}</td>
-            </tr>
-          `;
-    }).join('');
-}
-
-document.getElementById('refreshDockerBtn').addEventListener('click', loadDockerContainers);
 
 // ========== 应用设置 ==========
 async function loadAppConfig() {
@@ -2113,7 +1203,8 @@ async function loadAppConfig() {
 }
 
 // 保存端口设置
-document.getElementById('savePortBtn').addEventListener('click', async () => {
+const savePortBtn = document.getElementById('savePortBtn');
+if (savePortBtn) savePortBtn.addEventListener('click', async () => {
     const port = document.getElementById('appPortInput').value.trim();
     if (!port) {
         alert('请输入端口号');
@@ -2151,7 +1242,8 @@ document.getElementById('savePortBtn').addEventListener('click', async () => {
 });
 
 // 应用开机自启切换
-document.getElementById('appAutoStartToggle').addEventListener('change', async (e) => {
+const appAutoStartToggle = document.getElementById('appAutoStartToggle');
+if (appAutoStartToggle) appAutoStartToggle.addEventListener('change', async (e) => {
     const enabled = e.target.checked;
 
     try {
@@ -2214,7 +1306,8 @@ document.getElementById('checkUpdateBtn')?.addEventListener('click', async () =>
 });
 
 // 重启应用
-document.getElementById('restartAppBtn').addEventListener('click', async () => {
+const restartAppBtn = document.getElementById('restartAppBtn');
+if (restartAppBtn) restartAppBtn.addEventListener('click', async () => {
     if (!confirm('确定要重启面板吗？应用将在1秒后重启。')) {
         return;
     }
@@ -2599,37 +1692,52 @@ function displayWorkflowResult(images) {
     resultDiv.style.display = 'block';
 }
 
-// 绑定AI绘画事件
-document.getElementById('aiConfigBtn').addEventListener('click', () => {
-    document.getElementById('comfyuiConfigModal').classList.add('show');
+// 绑定AI绘画事件（仅 ComfyUI 页存在时）
+const aiConfigBtn = document.getElementById('aiConfigBtn');
+if (aiConfigBtn) aiConfigBtn.addEventListener('click', () => {
+    const m = document.getElementById('comfyuiConfigModal');
+    if (m) m.classList.add('show');
 });
-document.getElementById('saveComfyUIConfigBtn').addEventListener('click', saveComfyUIConfig);
-document.getElementById('cancelComfyUIConfigBtn').addEventListener('click', () => {
-    document.getElementById('comfyuiConfigModal').classList.remove('show');
+const saveComfyUIConfigBtn = document.getElementById('saveComfyUIConfigBtn');
+if (saveComfyUIConfigBtn) saveComfyUIConfigBtn.addEventListener('click', saveComfyUIConfig);
+const cancelComfyUIConfigBtn = document.getElementById('cancelComfyUIConfigBtn');
+if (cancelComfyUIConfigBtn) cancelComfyUIConfigBtn.addEventListener('click', () => {
+    const m = document.getElementById('comfyuiConfigModal');
+    if (m) m.classList.remove('show');
 });
-document.getElementById('closeComfyUIConfigModal').addEventListener('click', () => {
-    document.getElementById('comfyuiConfigModal').classList.remove('show');
+const closeComfyUIConfigModal = document.getElementById('closeComfyUIConfigModal');
+if (closeComfyUIConfigModal) closeComfyUIConfigModal.addEventListener('click', () => {
+    const m = document.getElementById('comfyuiConfigModal');
+    if (m) m.classList.remove('show');
 });
-document.getElementById('testComfyUIConnectionBtn').addEventListener('click', testComfyUIConnection);
-document.getElementById('executeWorkflowBtn').addEventListener('click', executeWorkflow);
-document.getElementById('cancelWorkflowExecuteBtn').addEventListener('click', () => {
-    document.getElementById('workflowExecuteModal').classList.remove('show');
+const testComfyUIConnectionBtn = document.getElementById('testComfyUIConnectionBtn');
+if (testComfyUIConnectionBtn) testComfyUIConnectionBtn.addEventListener('click', testComfyUIConnection);
+const executeWorkflowBtn = document.getElementById('executeWorkflowBtn');
+if (executeWorkflowBtn) executeWorkflowBtn.addEventListener('click', executeWorkflow);
+const cancelWorkflowExecuteBtn = document.getElementById('cancelWorkflowExecuteBtn');
+if (cancelWorkflowExecuteBtn) cancelWorkflowExecuteBtn.addEventListener('click', () => {
+    const m = document.getElementById('workflowExecuteModal');
+    if (m) m.classList.remove('show');
 });
-document.getElementById('closeWorkflowExecuteModal').addEventListener('click', () => {
-    document.getElementById('workflowExecuteModal').classList.remove('show');
+const closeWorkflowExecuteModal = document.getElementById('closeWorkflowExecuteModal');
+if (closeWorkflowExecuteModal) closeWorkflowExecuteModal.addEventListener('click', () => {
+    const m = document.getElementById('workflowExecuteModal');
+    if (m) m.classList.remove('show');
 });
 
 // ========== 初始化 ==========
 document.addEventListener('DOMContentLoaded', async () => {
     await loadSettingsFromServer();
-    await loadServices();
+    
     await loadPresetBackgrounds();
 
-    if (document.getElementById('page-process')) initProcessManagement();
+    if (document.getElementById('page-process') || window.location.pathname === '/process') initProcessManagement();
     if (document.getElementById('cpuChart') && typeof Chart !== 'undefined') {
         initCharts();
         initTimeRangeSelector();
     }
+
+    // initPageByPath();
 
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
@@ -2640,34 +1748,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 连接 WebSocket 以更新顶部栏状态
     connectMonitorWs();
-
-    // 初始化ping测量
-    measureWebPing();
-
-    // 每5秒更新一次ping
-    setInterval(() => {
-        measureWebPing();
-    }, 5000);
-
-    // 首页加载完成后自动检测连通性
-    setTimeout(pingAllServices, 1000);
-
-    // 检测所有服务的进程状态
-    setTimeout(checkAllServiceProcesses, 1500);
-
-    // 每 30 秒自动刷新连通状态
-    pingInterval = setInterval(() => {
-        if (document.getElementById('page-home').classList.contains('active')) {
-            pingAllServices();
-        }
-    }, 30000);
-
-    // 每 5 秒自动刷新进程状态
-    processCheckInterval = setInterval(() => {
-        if (document.getElementById('page-home').classList.contains('active')) {
-            checkAllServiceProcesses();
-        }
-    }, 5000);
 
     // 延迟自动检查更新（静默：仅在有新版本时提示）
     setTimeout(() => checkForUpdate(true), 3000);

@@ -6,7 +6,6 @@ let logsWs = null;
 
 // 加载网站项目数据
 async function loadWebsitesData() {
-    if (!document.getElementById('page-websites')) return;
 
     await Promise.all([loadWebsites()]);
 
@@ -102,8 +101,7 @@ function getWebsiteStatus(id) {
 
 // 获取项目访问地址（服务器IP:端口）
 function getWebsiteUrl(website) {
-    const serverIpEl = document.getElementById('serverIp');
-    const serverIp = (serverIpEl && serverIpEl.value) || (typeof currentSettings !== 'undefined' && currentSettings?.serverIp) || 'localhost';
+    const serverIp = window.location.hostname;
     const port = website?.port || 0;
     if (!port) return '-';
     return `http://${serverIp}:${port}`;
@@ -119,8 +117,6 @@ function openWebsiteUrl(id) {
 
 // 检查网站状态
 async function checkWebsiteStatus(id) {
-    //如果当前不是网站页面，则不检查网站状态
-    if (!document.getElementById('page-websites')) return;
     try {
         const response = await fetch(`/api/websites/${id}/status`);
         if (response.ok) {
@@ -409,18 +405,18 @@ async function stopWebsite(id) {
 }
 
 // 刷新所有项目状态
-async function refreshAllStatuses() {
+async function refreshAllStatuses(silent = false) {
     if (websites.length === 0) return;
     const btn = document.getElementById('websiteRefreshStatusBtn');
-    if (btn) {
-        btn.disabled = true;
-        btn.classList.add('loading');
+    if (!silent) {
+    btn.disabled = true;
+    btn.classList.add('loading');
     }
     try {
         await Promise.all(websites.map(w => checkWebsiteStatus(w.id)));
-        if (typeof showToast === 'function') showToast('状态已刷新', 'success');
+        if (!silent) showToast('状态已刷新', 'success');
     } finally {
-        if (btn) {
+        if (!silent) {
             btn.disabled = false;
             btn.classList.remove('loading');
         }
@@ -1343,26 +1339,13 @@ function initWebsiteEvents() {
 }
 
 // 页面加载时初始化
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        initWebsiteEvents();
-        // 如果当前页面是websites页面，加载数据
-        if (document.getElementById('page-websites')) {
-            loadWebsitesData();
-        }
-    });
-} else {
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('websites.js loaded');
     initWebsiteEvents();
-    if (document.getElementById('page-websites')) {
-        loadWebsitesData();
-    }
-}
-
-// 页面切换时加载数据
-document.addEventListener('pageChange', (e) => {
-    if (e.detail === 'websites') {
-        loadWebsitesData();
-    } else {
-        stopWebsitePolling();
-    }
+    loadWebsitesData();
+    refreshAllStatuses(true);
+    //定时刷新:
+    setInterval(() => {
+        refreshAllStatuses(true);
+    }, 5000);
 });

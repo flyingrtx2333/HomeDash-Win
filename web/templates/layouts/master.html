@@ -21,15 +21,6 @@
     <main class="main-content">
       <!-- 顶部栏 -->
       <header class="top-bar">
-        <div class="ip-input-container">
-          <label for="serverIp">服务器：</label>
-          <input 
-            type="text" 
-            id="serverIp" 
-            placeholder="例如: 192.168.1.100" 
-            value="localhost"
-          />
-        </div>
         <!-- 状态小图标 -->
         <div class="top-bar-stats" id="topBarStats">
           <div class="stat-mini" title="网页延迟">
@@ -58,12 +49,21 @@
         </div>
       </header>
 
-      <!-- 页面内容 -->
+      <!-- 页面内容（按路由只渲染当前页；Go 模板要求 template 名为字面量，故用 if/else） -->
       <div class="page-content">
-        {{block "content" .}}
-        <!-- 默认内容：所有页面视图 -->
-        {{template "pages/all" .}}
-        {{end}}
+        {{if eq .ContentTemplate "pages/home-content"}}{{template "pages/home-content" .}}
+        {{else if eq .ContentTemplate "pages/monitor-content"}}{{template "pages/monitor-content" .}}
+        {{else if eq .ContentTemplate "pages/process-content"}}{{template "pages/process-content" .}}
+        {{else if eq .ContentTemplate "pages/webdav-content"}}{{template "pages/webdav-content" .}}
+        {{else if eq .ContentTemplate "pages/logs"}}{{template "pages/logs" .}}
+        {{else if eq .ContentTemplate "pages/terminal-content"}}{{template "pages/terminal-content" .}}
+        {{else if eq .ContentTemplate "pages/docker-content"}}{{template "pages/docker-content" .}}
+        {{else if eq .ContentTemplate "pages/comfyui-content"}}{{template "pages/comfyui-content" .}}
+        {{else if eq .ContentTemplate "pages/settings-content"}}{{template "pages/settings-content" .}}
+        {{else if eq .ContentTemplate "pages/frpc-content"}}{{template "pages/frpc-content" .}}
+        {{else if eq .ContentTemplate "pages/websites-content"}}{{template "pages/websites-content" .}}
+        {{else if eq .ContentTemplate "pages/database-content"}}{{template "pages/database-content" .}}
+        {{else}}{{template "pages/home-content" .}}{{end}}
       </div>
 
       {{template "partials/footer" .}}
@@ -236,9 +236,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="/static/js/base.js"></script>
-  <script src="/static/js/frpc.js"></script>
-  <script src="/static/js/websites.js"></script>
-  <script src="/static/js/database.js"></script>
 </body>
 </html>
 {{end}}

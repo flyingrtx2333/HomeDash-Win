@@ -271,6 +271,7 @@ let autoRefreshInterval = null;
 // 加载日志服务列表
 async function loadLogServices() {
   try {
+    console.log('正在加载日志服务列表...');
     const response = await fetch('/api/logs/services');
     const services = await response.json();
     
