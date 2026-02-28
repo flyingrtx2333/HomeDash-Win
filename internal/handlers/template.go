@@ -39,6 +39,7 @@ func LoadTemplates() (*template.Template, error) {
 			filepath.Join(templateDir, "pages", "settings.html"),
 			filepath.Join(templateDir, "pages", "frpc.html"),
 			filepath.Join(templateDir, "pages", "websites.html"),
+			filepath.Join(templateDir, "pages", "websites_npm.html"),
 			filepath.Join(templateDir, "pages", "database.html"),
 		}
 

@@ -1,0 +1,13 @@
+[
+  {
+    "id": "28991bd4",
+    "name": "test",
+    "path": "D:\\flaskProjects\\FlyingrtxFast\\frontend",
+    "workingDir": "D:\\flaskProjects\\FlyingrtxFast\\frontend",
+    "startCommand": "npm run dev",
+    "port": 59888,
+    "autoStart": false,
+    "createdAt": 1772265251639,
+    "updatedAt": 1772265282419
+  }
+]

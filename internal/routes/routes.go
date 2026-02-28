@@ -28,8 +28,9 @@ var pageRoutes = map[string]pageConfig{
 	"/comfyui":  {"pages/comfyui-content", nil},
 	"/settings": {"pages/settings-content", nil},
 	"/frpc":     {"pages/frpc-content", []string{"frpc"}},
-	"/websites": {"pages/websites-content", []string{"websites"}},
-	"/database": {"pages/database-content", []string{"database"}},
+	"/websites":     {"pages/websites-content", []string{"websites"}},
+	"/websites-npm": {"pages/websites-npm-content", []string{"websites_npm"}},
+	"/database":     {"pages/database-content", []string{"database"}},
 }
 
 // SetupRoutes 设置所有路由
@@ -173,6 +174,20 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 		api.GET("/websites/:id/logs", handlers.GetWebsiteLogs)
 		api.POST("/websites/:id/logs/clear", handlers.ClearWebsiteLogs)
 		router.GET("/ws/websites/:id/logs", handlers.StreamWebsiteLogs)
+	}
+
+	// ========== Node.js 项目管理 ==========
+	{
+		api.GET("/npm-projects", handlers.GetNpmProjects)
+		api.GET("/npm-projects/:id", handlers.GetNpmProject)
+		api.POST("/npm-projects", handlers.CreateNpmProject)
+		api.PUT("/npm-projects/:id", handlers.UpdateNpmProject)
+		api.DELETE("/npm-projects/:id", handlers.DeleteNpmProject)
+		api.POST("/npm-projects/:id/start", handlers.StartNpmProject)
+		api.POST("/npm-projects/:id/stop", handlers.StopNpmProject)
+		api.GET("/npm-projects/:id/status", handlers.GetNpmProjectStatus)
+		api.GET("/npm-projects/:id/logs", handlers.GetNpmProjectLogs)
+		api.POST("/npm-projects/:id/logs/clear", handlers.ClearNpmProjectLogs)
 	}
 
 	// ========== 数据库管理 ==========

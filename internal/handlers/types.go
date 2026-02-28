@@ -104,6 +104,19 @@ type PythonWebsite struct {
 	UpdatedAt       int64             `json:"updatedAt"`
 }
 
+// NodeProject Node.js 项目
+type NodeProject struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Path         string `json:"path"`       // 项目路径（绝对路径）
+	WorkingDir   string `json:"workingDir"` // 工作目录，为空则用 Path
+	StartCommand string `json:"startCommand"`
+	Port         int    `json:"port"` // 可选，用于状态检测与展示
+	AutoStart    bool   `json:"autoStart"`
+	CreatedAt    int64  `json:"createdAt"`
+	UpdatedAt    int64  `json:"updatedAt"`
+}
+
 // PythonVersion Python版本信息
 type PythonVersion struct {
 	Version   string `json:"version"`   // Python版本号（如：3.11.0）
@@ -112,7 +125,7 @@ type PythonVersion struct {
 }
 
 // AppVersion 当前应用版本号（与 release 保持一致）
-const AppVersion = "0.6.0"
+const AppVersion = "0.6.1"
 
 // UpdateCheckResponse 更新检查接口返回（与更新服务器约定一致）
 type UpdateCheckResponse struct {

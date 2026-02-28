@@ -62,6 +62,7 @@
         {{else if eq .ContentTemplate "pages/settings-content"}}{{template "pages/settings-content" .}}
         {{else if eq .ContentTemplate "pages/frpc-content"}}{{template "pages/frpc-content" .}}
         {{else if eq .ContentTemplate "pages/websites-content"}}{{template "pages/websites-content" .}}
+        {{else if eq .ContentTemplate "pages/websites-npm-content"}}{{template "pages/websites-npm-content" .}}
         {{else if eq .ContentTemplate "pages/database-content"}}{{template "pages/database-content" .}}
         {{else}}{{template "pages/home-content" .}}{{end}}
       </div>

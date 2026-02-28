@@ -197,7 +197,7 @@ function updateVenvActionsVisibility() {
     const projectVenv = pathNorm + sep + '.venv';
     const norm = s => (s || '').replace(/\//g, '\\');
     const isProjectVenv = path && norm(selected) === norm(projectVenv);
-    venvSection.style.display = isProjectVenv ? '' : 'none';
+    // venvSection.style.display = isProjectVenv ? '' : 'none';
 }
 
 // 根据所选环境 + 入口文件自动填充启动命令（.venv → Scripts/python.exe + 入口；conda → python.exe + 入口）
@@ -228,7 +228,7 @@ async function openWebsiteModal(editId = null) {
     const modal = document.getElementById('websiteModal');
     const editIdInput = document.getElementById('websiteEditId');
     const venvSection = document.getElementById('websiteVenvActionsRow');
-    if (venvSection) venvSection.style.display = 'none';
+    // if (venvSection) venvSection.style.display = 'none';
 
     if (editId) {
         const website = websites.find(w => w.id === editId);

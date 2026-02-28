@@ -25,7 +25,7 @@
     "domain": "",
     "port": 58888,
     "pythonPath": "",
-    "venvPath": "D:\\flaskProjects\\FlyingrtxFast\\.venv",
+    "venvPath": "D:\\FTP\\FlyingrtxFast\\.venv",
     "framework": "fastapi",
     "entryFile": "app.py",
     "startCommand": "D:\\flaskProjects\\FlyingrtxFast\\.venv\\Scripts\\python.exe app.py",

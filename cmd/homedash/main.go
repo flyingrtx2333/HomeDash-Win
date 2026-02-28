@@ -96,6 +96,7 @@ func runServer(app *ui.App) {
 
 	handlers.MaybeLaunchFrpcOnStartup()
 	handlers.MaybeLaunchWebsitesOnStartup()
+	handlers.MaybeLaunchNpmProjectsOnStartup()
 
 	log.Printf("HomeDash Win 已启动 → http://127.0.0.1:%s", port)
 	app.SetRunning(true, port)

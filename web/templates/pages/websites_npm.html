@@ -1,0 +1,133 @@
+{{define "pages/websites-npm-content"}}
+<link rel="stylesheet" href="/static/css/websites.css" />
+<div class="websites-container">
+  <div class="section-header">
+    <h2>Node.js 项目管理</h2>
+    <div class="section-header-actions">
+      <button type="button" class="btn-outline btn-sm" id="npmRefreshStatusBtn" title="刷新所有项目状态">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        刷新状态
+      </button>
+      <button type="button" class="btn-outline" id="npmAddBtn">+ 创建项目</button>
+    </div>
+  </div>
+
+  <div class="websites-table-wrapper">
+    <div class="websites-empty" id="npmEmpty">
+      <p>暂无项目，点击「创建项目」开始</p>
+    </div>
+    <div class="websites-table-container" id="npmList">
+      <div class="websites-table-header">
+        <span class="websites-th websites-th-name">项目名称</span>
+        <span class="websites-th websites-th-status">状态</span>
+        <span class="websites-th websites-th-port">端口</span>
+        <span class="websites-th websites-th-path">路径</span>
+        <span class="websites-th websites-th-actions">操作</span>
+      </div>
+      <div class="websites-table-body" id="npmTableBody">
+      </div>
+    </div>
+  </div>
+
+  <!-- 创建/编辑项目弹窗 -->
+  <div class="modal-overlay" id="npmModal">
+    <div class="modal modal-large">
+      <div class="modal-body">
+        <input type="hidden" id="npmEditId" value="" />
+        <div class="form-group form-group-inline form-group-row">
+          <div class="form-group-inline-item">
+            <label>项目名称 <span class="required">*</span></label>
+            <input type="text" id="npmName" class="form-control" placeholder="例如：我的 Node 应用" />
+          </div>
+          <div class="form-group-inline-item">
+            <label>项目路径 <span class="required">*</span></label>
+            <div class="form-control-group">
+              <input type="text" id="npmPath" class="form-control" placeholder="例如：D:\Projects\myapp" />
+              <button type="button" class="btn-outline btn-sm" id="npmPathBrowseBtn" title="选择文件夹">📁</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group form-group-inline form-group-row">
+          <div class="form-group-inline-item">
+            <label>工作目录</label>
+            <div class="form-control-group">
+              <input type="text" id="npmWorkingDir" class="form-control" placeholder="留空则使用项目路径" />
+              <button type="button" class="btn-outline btn-sm" id="npmWorkingDirBrowseBtn" title="选择文件夹">📁</button>
+            </div>
+          </div>
+          <div class="form-group-inline-item">
+            <label>端口（用于进程检测   ）</label>
+            <input type="number" id="npmPort" class="form-control" placeholder="3000" min="0" max="65535" />
+          </div>
+        </div>
+        <div class="form-group form-group-inline">
+          <label>启动命令 <span class="required">*</span></label>
+          <input type="text" id="npmStartCommand" class="form-control" placeholder="例如：npm start, node index.js" />
+        </div>
+        <div class="form-group form-group-inline">
+          <label class="toggle-switch">
+            <input type="checkbox" id="npmAutoStart" />
+            <span class="toggle-slider"></span>
+            <span>开机自启</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" id="npmModalCancel">取消</button>
+        <button type="button" class="btn-outline" id="npmModalConfirm">保存</button>
+        <button type="button" class="modal-close" id="npmModalClose" title="关闭">&times;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 路径浏览器 -->
+  <div class="modal-overlay" id="npmPathBrowserModal">
+    <div class="modal modal-large">
+      <div class="modal-body">
+        <div class="path-browser">
+          <div class="path-browser-header">
+            <div class="path-breadcrumb" id="npmPathBreadcrumb">
+              <span class="breadcrumb-item" data-path="">根目录</span>
+            </div>
+            <button class="modal-close" id="npmPathBrowserClose">&times;</button>
+          </div>
+          <div class="path-browser-body" id="npmPathBrowserBody">
+            <div class="path-browser-loading">加载中...</div>
+          </div>
+          <div class="path-browser-footer">
+            <div class="path-browser-current">
+              <label>当前路径：</label>
+              <input type="text" id="npmPathBrowserCurrentPath" class="form-control" readonly />
+            </div>
+            <div class="path-browser-actions">
+              <button type="button" class="btn btn-secondary" id="npmPathBrowserCancel">取消</button>
+              <button type="button" class="btn-outline" id="npmPathBrowserConfirm">选择</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 日志弹窗 -->
+  <div class="modal-overlay" id="npmLogsModal">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3>项目日志</h3>
+        <button class="modal-close" id="npmLogsClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="logs-container">
+          <pre id="npmLogsContent" class="logs-content"></pre>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" id="npmLogsCancel">关闭</button>
+        <button type="button" class="btn-outline" id="npmLogsRefreshBtn">刷新</button>
+        <button type="button" class="btn-outline btn-danger" id="npmLogsClearBtn" title="清空当前项目日志文件">清空日志</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/static/js/websites_npm.js"></script>
+{{end}}

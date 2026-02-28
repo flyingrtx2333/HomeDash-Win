@@ -8,16 +8,18 @@ import (
 )
 
 var (
-	webDir        string
-	settingsFile  string
-	servicesFile  string
-	websitesFile  string
-	databasesFile string
-	settingsMu    sync.RWMutex
-	servicesMu    sync.RWMutex
-	websitesMu    sync.RWMutex
-	databasesMu   sync.RWMutex
-	webdavRoot    string // WebDAV 根目录
+	webDir          string
+	settingsFile    string
+	servicesFile    string
+	websitesFile    string
+	npmProjectsFile string
+	databasesFile   string
+	settingsMu      sync.RWMutex
+	servicesMu      sync.RWMutex
+	websitesMu      sync.RWMutex
+	npmProjectsMu   sync.RWMutex
+	databasesMu     sync.RWMutex
+	webdavRoot      string // WebDAV 根目录
 )
 
 // InitHandlers 初始化处理器全局变量
@@ -26,6 +28,7 @@ func InitHandlers(wd, sf, svf, wr, dataDir string) {
 	settingsFile = sf
 	servicesFile = svf
 	websitesFile = filepath.Join(dataDir, "websites.json")
+	npmProjectsFile = filepath.Join(dataDir, "npm_projects.json")
 	databasesFile = filepath.Join(dataDir, "databases.json")
 	webdavRoot = wr
 }
@@ -128,6 +131,32 @@ func saveWebsites(websites []PythonWebsite) error {
 		return err
 	}
 	return os.WriteFile(websitesFile, data, 0644)
+}
+
+// loadNpmProjects 加载 Node 项目列表
+func loadNpmProjects() []NodeProject {
+	npmProjectsMu.RLock()
+	defer npmProjectsMu.RUnlock()
+
+	var projects []NodeProject
+	data, err := os.ReadFile(npmProjectsFile)
+	if err != nil {
+		return projects
+	}
+	json.Unmarshal(data, &projects)
+	return projects
+}
+
+// saveNpmProjects 保存 Node 项目列表
+func saveNpmProjects(projects []NodeProject) error {
+	npmProjectsMu.Lock()
+	defer npmProjectsMu.Unlock()
+
+	data, err := json.MarshalIndent(projects, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(npmProjectsFile, data, 0644)
 }
 
 // loadDatabases 加载数据库列表
