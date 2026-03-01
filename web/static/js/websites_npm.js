@@ -14,7 +14,8 @@ const npmIcons = {
   play: '<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
   stop: '<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
   logs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M13 12h8"/><path d="M13 5h8"/><path d="M13 19h8"/><path d="M3 12h.01"/><path d="M3 5h.01"/><path d="M3 19h.01"/></svg>',
-  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  terminal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
 };
 
 function npmEscapeHtml(text) {
@@ -84,6 +85,7 @@ function renderNpmProjects() {
         <span class="website-td website-td-path" title="${npmEscapeHtml(p.path || '')}">${npmEscapeHtml(p.path || '-')}</span>
         <span class="website-td website-td-actions">
           <button type="button" class="website-btn" onclick="viewNpmLogs('${p.id}')" title="查看日志">${npmIcons.logs}</button>
+          <button type="button" class="website-btn" onclick="openNpmTerminal('${p.id}')" title="进入环境（cd 到工作目录）">${npmIcons.terminal}</button>
           <button type="button" class="website-btn" onclick="editNpmProject('${p.id}')" title="编辑">${npmIcons.edit}</button>
           ${startStopBtn}
           <button type="button" class="website-btn website-btn-danger" onclick="deleteNpmProject('${p.id}')" title="删除">${npmIcons.trash}</button>
@@ -113,6 +115,7 @@ async function checkNpmStatus(id) {
             : `<button type="button" class="website-btn" onclick="startNpmProject('${id}')" title="启动">${npmIcons.play}</button>`;
           actionsEl.innerHTML = `
             <button type="button" class="website-btn" onclick="viewNpmLogs('${id}')" title="查看日志">${npmIcons.logs}</button>
+            <button type="button" class="website-btn" onclick="openNpmTerminal('${id}')" title="进入环境（cd 到工作目录）">${npmIcons.terminal}</button>
             <button type="button" class="website-btn" onclick="editNpmProject('${id}')" title="编辑">${npmIcons.edit}</button>
             ${startStopBtn}
             <button type="button" class="website-btn website-btn-danger" onclick="deleteNpmProject('${id}')" title="删除">${npmIcons.trash}</button>
@@ -204,6 +207,23 @@ async function saveNpmProject() {
 
 function editNpmProject(id) {
   openNpmModal(id);
+}
+
+// 进入环境：跳转终端并 cd 到工作目录
+function openNpmTerminal(id) {
+  const project = npmProjects.find(p => p.id === id);
+  if (!project) return;
+  closeNpmModal();
+  try {
+    const workDir = (project.workingDir || project.path || '').trim();
+    sessionStorage.setItem('websiteTerminalContext', JSON.stringify({
+      path: workDir,
+      venvPath: ''
+    }));
+  } catch (e) {
+    console.error('openNpmTerminal error:', e);
+  }
+  window.location.href = '/terminal';
 }
 
 async function deleteNpmProject(id) {
@@ -463,6 +483,78 @@ function confirmNpmPathSelection() {
   closeNpmPathBrowser();
 }
 
+function closeNpmInstallModal() {
+  const modal = document.getElementById('npmInstallModal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function npmInstallEnv() {
+  const editId = document.getElementById('npmEditId')?.value?.trim();
+  if (!editId) {
+    if (typeof showToast === 'function') showToast('请先保存项目后再安装依赖', 'warning');
+    return;
+  }
+  const packageManager = (document.getElementById('npmPackageManager')?.value || 'npm').trim() || 'npm';
+  const modal = document.getElementById('npmInstallModal');
+  const contentEl = document.getElementById('npmInstallContent');
+  const closeBtn = document.getElementById('npmInstallCloseBtn');
+  if (modal) modal.classList.add('active');
+  if (contentEl) contentEl.textContent = `正在执行 ${packageManager} install...\n`;
+  if (closeBtn) {
+    closeBtn.disabled = true;
+    closeBtn.textContent = '安装完成后可关闭';
+  }
+  try {
+    const response = await fetch(`/api/npm-projects/${editId}/install`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ packageManager })
+    });
+    if (!response.ok && !response.body) {
+      const err = await response.json().catch(() => ({}));
+      if (typeof showToast === 'function') showToast(err.error || '请求失败', 'error');
+      if (closeBtn) closeBtn.disabled = false;
+      return;
+    }
+    const reader = response.body?.getReader();
+    if (!reader) {
+      const text = await response.text();
+      if (contentEl) contentEl.textContent += text + '\n';
+      if (!response.ok && typeof showToast === 'function') showToast('安装失败', 'error');
+      if (closeBtn) closeBtn.disabled = false;
+      if (closeBtn) closeBtn.textContent = '关闭';
+      return;
+    }
+    const decoder = new TextDecoder();
+    let fullText = contentEl?.textContent || '';
+    let hasFailed = false;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      fullText += chunk;
+      if (contentEl) {
+        contentEl.textContent = fullText;
+        contentEl.scrollTop = contentEl.scrollHeight;
+      }
+      if (chunk.includes('[INSTALL_FAILED]')) hasFailed = true;
+    }
+    if (hasFailed || !response.ok) {
+      if (typeof showToast === 'function') showToast('安装失败，详见上方日志', 'error');
+    } else {
+      if (typeof showToast === 'function') showToast('依赖安装成功', 'success');
+    }
+  } catch (e) {
+    if (contentEl) contentEl.textContent += '\n[错误] ' + (e.message || '安装失败');
+    if (typeof showToast === 'function') showToast('安装失败', 'error');
+  } finally {
+    if (closeBtn) {
+      closeBtn.disabled = false;
+      closeBtn.textContent = '关闭';
+    }
+  }
+}
+
 function initNpmEvents() {
   const addBtn = document.getElementById('npmAddBtn');
   const modal = document.getElementById('npmModal');
@@ -480,6 +572,15 @@ function initNpmEvents() {
   if (modalConfirm) modalConfirm.addEventListener('click', saveNpmProject);
   if (pathBrowseBtn) pathBrowseBtn.addEventListener('click', () => openNpmPathBrowser('npmPath'));
   if (workingDirBrowseBtn) workingDirBrowseBtn.addEventListener('click', () => openNpmPathBrowser('npmWorkingDir'));
+
+  const installEnvBtn = document.getElementById('npmInstallEnvBtn');
+  if (installEnvBtn) installEnvBtn.addEventListener('click', npmInstallEnv);
+  const npmInstallModalClose = document.getElementById('npmInstallModalClose');
+  const npmInstallCloseBtn = document.getElementById('npmInstallCloseBtn');
+  if (npmInstallModalClose) npmInstallModalClose.addEventListener('click', closeNpmInstallModal);
+  if (npmInstallCloseBtn) npmInstallCloseBtn.addEventListener('click', closeNpmInstallModal);
+  const npmInstallModal = document.getElementById('npmInstallModal');
+  if (npmInstallModal) npmInstallModal.addEventListener('click', e => { if (e.target === npmInstallModal) closeNpmInstallModal(); });
 
   const pathBrowserModal = document.getElementById('npmPathBrowserModal');
   const pathBrowserClose = document.getElementById('npmPathBrowserClose');

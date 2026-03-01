@@ -162,19 +162,14 @@ function connectTerminal() {
         //     term.writeln(changecmd);
         //     console.log('自动切换盘符:', changecmd);
         // }
-        if (venvPath) {
-            let activateCmd = '';
-            activateCmd = `${venvPath.replace(/\//g, '\\')}\\Scripts\\python.exe ${venvPath.replace(/\//g, '\\')}\\Scripts\\pip.exe`;
+        if (projectPath) {
             setTimeout(() => {
                 console.log('切换到项目目录:', projectPath);
                 terminalWs.send(`cd ${projectPath}\r`);
-                // term.writeln(`\x1b[36m[自动切换] 执行: cd ${projectPath}\x1b[0m`);/*  */
-                terminalWs.send(activateCmd);
-                // term.writeln(`\x1b[36m[自动激活] 执行: ${activateCmd}\x1b[0m`);
-                // 1.5 秒后检查 python 版本
-                // setTimeout(() => {
-                //     terminalWs.send('python --version\r\n');
-                // }, 1500);
+                if (venvPath) {
+                    const activateCmd = `${venvPath.replace(/\//g, '\\')}\\Scripts\\python.exe ${venvPath.replace(/\//g, '\\')}\\Scripts\\pip.exe`;
+                    terminalWs.send(activateCmd);
+                }
                 sessionStorage.removeItem('websiteTerminalContext');
             }, 1500);  // 等待 shell 就绪
         }

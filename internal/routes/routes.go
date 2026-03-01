@@ -188,6 +188,7 @@ func SetupRoutes(router *gin.Engine, webDir string, port string) {
 		api.GET("/npm-projects/:id/status", handlers.GetNpmProjectStatus)
 		api.GET("/npm-projects/:id/logs", handlers.GetNpmProjectLogs)
 		api.POST("/npm-projects/:id/logs/clear", handlers.ClearNpmProjectLogs)
+		api.POST("/npm-projects/:id/install", handlers.InstallNpmDependencies)
 	}
 
 	// ========== 数据库管理 ==========

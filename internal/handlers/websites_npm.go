@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -418,6 +419,78 @@ func ClearNpmProjectLogs(c *gin.Context) {
 	}
 	f.Close()
 	c.JSON(200, gin.H{"success": true})
+}
+
+// InstallNpmDependencies 安装依赖（npm/yarn/pnpm install），实时输出到弹窗
+func InstallNpmDependencies(c *gin.Context) {
+	id := c.Param("id")
+	projects := loadNpmProjects()
+	var project *NodeProject
+	for _, p := range projects {
+		if p.ID == id {
+			project = &p
+			break
+		}
+	}
+	if project == nil {
+		c.JSON(404, gin.H{"error": "项目不存在"})
+		return
+	}
+	workDir := project.WorkingDir
+	if workDir == "" {
+		workDir = project.Path
+	}
+	var req struct {
+		PackageManager string `json:"packageManager"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	pm := strings.ToLower(strings.TrimSpace(req.PackageManager))
+	if pm == "" {
+		pm = "npm"
+	}
+	var name string
+	var args []string
+	switch pm {
+	case "yarn":
+		name = "yarn"
+		args = []string{"install"}
+	case "pnpm":
+		name = "pnpm"
+		args = []string{"install"}
+	default:
+		name = "npm"
+		args = []string{"install"}
+	}
+
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		cmdSync := ui.HideWindow(name, args...)
+		cmdSync.Dir = workDir
+		cmdSync.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}
+		output, err := cmdSync.CombinedOutput()
+		if err != nil {
+			c.String(500, string(output)+"\n[INSTALL_FAILED] "+err.Error()+"\n")
+			return
+		}
+		c.String(200, string(output))
+		return
+	}
+
+	cmd := ui.HideWindow(name, args...)
+	cmd.Dir = workDir
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}
+	streamWriter := &flushWriter{w: c.Writer, f: flusher}
+	cmd.Stdout = streamWriter
+	cmd.Stderr = streamWriter
+	log.Printf("[Node项目] 安装依赖: %s %v, dir=%s", name, args, workDir)
+	err := cmd.Run()
+	if err != nil {
+		fmt.Fprintf(streamWriter, "\n[INSTALL_FAILED] %v\n", err)
+	}
 }
 
 // MaybeLaunchNpmProjectsOnStartup 应用启动时自动启动勾选了「开机自启」的 Node 项目
