@@ -200,6 +200,31 @@ function updateVenvActionsVisibility() {
     // venvSection.style.display = isProjectVenv ? '' : 'none';
 }
 
+// 根据所选环境 + 入口文件生成建议启动命令：实际环境路径/python.exe + 入口文件（如 C:\...\envs\pytorch210\python.exe app.py）
+function getSuggestedStartCommand() {
+    const pathInput = document.getElementById('websitePath');
+    const envSelect = document.getElementById('websiteEnvSelect');
+    const entryInput = document.getElementById('websiteEntryFile');
+    if (!envSelect) return '';
+    const projectPath = (pathInput?.value || '').trim().replace(/[/\\]+$/, '');
+    const envPath = (envSelect.value || '').trim();
+    const entryFile = (entryInput?.value || '').trim() || 'app.py';
+    if (!envPath) return '';
+    const isWin = (typeof navigator !== 'undefined' && /win/i.test(navigator.platform)) || envPath.indexOf('\\') >= 0;
+    const sep = isWin ? '\\' : '/';
+    let pathNorm = envPath.replace(/[/\\]+$/, '');
+    // 相对路径时用项目路径拼成绝对路径
+    if (projectPath && !pathNorm.startsWith(sep) && pathNorm.indexOf(':') < 0 && (pathNorm.startsWith('.') || !pathNorm.startsWith(sep))) {
+        pathNorm = projectPath + sep + (pathNorm.replace(/^\.\/|^\.\\/, '') || '.venv');
+    }
+    const isVenv = pathNorm.toLowerCase().endsWith('.venv') || pathNorm.includes('.venv' + sep);
+    const pythonExe = isWin
+        ? (isVenv ? pathNorm + sep + 'Scripts' + sep + 'python.exe' : pathNorm + sep + 'python.exe')
+        : pathNorm + sep + 'bin' + sep + 'python';
+    const quote = s => /[\s"]/.test(s) ? '"' + String(s).replace(/"/g, '\\"') + '"' : s;
+    return quote(pythonExe) + ' ' + quote(entryFile);
+}
+
 // 根据所选环境 + 入口文件自动填充启动命令（.venv → Scripts/python.exe + 入口；conda → python.exe + 入口）
 function fillStartCommandFromEnv() {
     const envSelect = document.getElementById('websiteEnvSelect');
@@ -209,26 +234,17 @@ function fillStartCommandFromEnv() {
     const envPath = (envSelect.value || '').trim();
     const entryFile = (entryInput?.value || '').trim() || 'app.py';
     if (!envPath) return;
-    const isWin = envPath.indexOf('\\') >= 0 || (typeof navigator !== 'undefined' && /win/i.test(navigator.platform));
-    const sep = isWin ? '\\' : '/';
-    const pathNorm = envPath.replace(/[/\\]+$/, '');
-    const isVenv = pathNorm.toLowerCase().endsWith('.venv') || pathNorm.includes('.venv' + sep);
-    let pythonExe;
-    if (isWin) {
-        pythonExe = isVenv ? pathNorm + sep + 'Scripts' + sep + 'python.exe' : pathNorm + sep + 'python.exe';
-    } else {
-        pythonExe = pathNorm + sep + 'bin' + sep + 'python';
-    }
-    const quote = s => /[\s"]/.test(s) ? '"' + String(s).replace(/"/g, '\\"') + '"' : s;
-    cmdInput.value = quote(pythonExe) + ' ' + quote(entryFile);
+    const suggested = getSuggestedStartCommand();
+    if (suggested) cmdInput.value = suggested;
 }
 
 // 打开创建/编辑项目弹窗
 async function openWebsiteModal(editId = null) {
+    console.log('openWebsiteModal', editId);
     const modal = document.getElementById('websiteModal');
     const editIdInput = document.getElementById('websiteEditId');
     const venvSection = document.getElementById('websiteVenvActionsRow');
-    // if (venvSection) venvSection.style.display = 'none';
+    modal.classList.add('active');
 
     if (editId) {
         const website = websites.find(w => w.id === editId);
@@ -259,7 +275,7 @@ async function openWebsiteModal(editId = null) {
         await loadWebsiteEnvOptions('', '');
     }
 
-    modal.classList.add('active');
+    
 }
 
 
@@ -436,16 +452,7 @@ function openWebsiteTerminal(website) {
     } catch (e) {
         console.error('openWebsiteTerminal error:', e);
     }
-    if (typeof switchPage === 'function') {
-        switchPage('ssh');
-    } else {
-        document.querySelectorAll('.nav-item').forEach(nav => {
-            nav.classList.toggle('active', nav.dataset.page === 'ssh');
-        });
-        document.querySelectorAll('.page-view').forEach(view => {
-            view.classList.toggle('active', view.id === 'page-ssh');
-        });
-    }
+    window.location.href = '/terminal';
 }
 
 // 创建虚拟环境
@@ -1237,6 +1244,20 @@ function initWebsiteEvents() {
     if (entryFileInput) {
         entryFileInput.addEventListener('change', fillStartCommandFromEnv);
         entryFileInput.addEventListener('blur', fillStartCommandFromEnv);
+    }
+    const suggestStartCmdBtn = document.getElementById('websiteSuggestStartCommandBtn');
+    if (suggestStartCmdBtn) {
+        suggestStartCmdBtn.addEventListener('click', () => {
+            const cmdInput = document.getElementById('websiteStartCommand');
+            if (!cmdInput) return;
+            const suggested = getSuggestedStartCommand();
+            if (!suggested) {
+                if (typeof showToast === 'function') showToast('请先选择环境（项目 .venv 或 conda）', 'warning');
+                return;
+            }
+            cmdInput.value = suggested;
+            if (typeof showToast === 'function') showToast('已填充建议启动命令', 'success');
+        });
     }
 
     // 编辑弹窗中的虚拟环境操作按钮
